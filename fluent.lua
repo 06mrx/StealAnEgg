@@ -2418,17 +2418,29 @@ local function addInput(parent, opt)
     })
 end
 
+local fScreen = nil
+pcall(function()
+    local vp = game:GetService("Workspace").CurrentCamera
+    if vp then fScreen = vp.ViewportSize end
+end)
+
 local Window = nil
 if Fluent then
     Window = Fluent:CreateWindow({
         Title = "Apex Hub",
         SubTitle = "Steel An Eggs",
         TabWidth = 140,
-        Size = UDim2.fromOffset(580, 430),
+        Size = UDim2.fromOffset(580, math.min(430, math.max(340, math.floor((fScreen and fScreen.Y or 800) * 0.72)))),
         Acrylic = false,
-        Theme = "Dark",
+        Theme = "Darker",
         MinimizeKey = Enum.KeyCode.RightShift,
     })
+    pcall(function()
+        if Fluent.ThemeManager then
+            Fluent.ThemeManager:SetLibrary("dark")
+            Fluent.ThemeManager:SetProperty("Accent.DeepPurple")
+        end
+    end)
 end
 
 -- ============================================================
