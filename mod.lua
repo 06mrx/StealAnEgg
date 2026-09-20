@@ -3759,5 +3759,5 @@ if r.isOn("AntiGameplayPause") then r.applyAntiGameplayPause(true) end
 if r.isOn("FpsBoost") then r.enableFpsBoost() end
 r.applyFpsCap(r.optionValue("FpsCap", 60))
 
-r.notify("Apex Hub", "Ready - press the floating icon", "Success", 5)
+r.notify("Apex Hubb", "Ready - press the floating icon", "Success", 5)
 if fq.statusRow then fq.statusRow:SetStatus("Success") end
