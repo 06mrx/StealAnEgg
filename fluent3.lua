@@ -19,6 +19,8 @@ if type(table.find) ~= "function" then
     end
 end
 
+-- update
+
 local a = _G_ENV
 if type(a.__APEX_HUB_SHUTDOWN) == "function" then
     pcall(a.__APEX_HUB_SHUTDOWN); task.wait(0.1)
@@ -2528,6 +2530,8 @@ do
 end
 
 if Window then
+
+local fq = {}
 
     local tabHome = addTab(Window, "Home")
     if tabHome then
