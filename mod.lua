@@ -1095,9 +1095,9 @@ function r.stealEgg(dq)
             local du = r.getRoot()
             if du then
                 pcall(function() du.Anchored = true end)
-                du.AssemblyLinearVelocity  = Vector3.zero
-                du.AssemblyAngularVelocity = Vector3.zero
-                c.Heartbeat:Wait()
+                -- du.AssemblyLinearVelocity  = Vector3.zero
+                -- du.AssemblyAngularVelocity = Vector3.zero
+                -- c.Heartbeat:Wait()
             end
         end
         r.holdAtPosition(bp, r.stealingEnabled)
