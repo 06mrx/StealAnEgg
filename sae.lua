@@ -19,8 +19,6 @@ if type(table.find) ~= "function" then
     end
 end
 
--- update
-
 local a = _G_ENV
 if type(a.__APEX_HUB_SHUTDOWN) == "function" then
     pcall(a.__APEX_HUB_SHUTDOWN); task.wait(0.1)
@@ -2176,30 +2174,349 @@ function r.priorityOrder()
     return du
 end
 
-
 -- ============================================================
--- FLUENT UI
+-- STANDALONE UI
 -- ============================================================
-
-
-local Library = nil
-local LibLoaded = false
-do
-    local ok, lib = pcall(function()
-        return loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/Library.lua"))()
-    end)
-    if ok and lib then
-        Library = lib
-        LibLoaded = true
-    end
-end
-if not Library then
-    warn("[NiCH] LinoriaLib failed to load (check internet connection)")
-end
-
 local dt = {}
 dt.__state = {}
 dt.__callbacks = {}
+dt.__tabs = {}
+dt.__activeTab = nil
+dt.__connections = {}
+
+local function du(dv) table.insert(dt.__connections, dv); return dv end
+
+local dw = {
+    panelBg       = Color3.fromRGB(12, 12, 14),
+    panelBg2      = Color3.fromRGB(18, 18, 22),
+    panelBorder   = Color3.fromRGB(40, 40, 46),
+    panelBorderHi = Color3.fromRGB(90, 90, 100),
+    sidebarBg     = Color3.fromRGB(10, 10, 12),
+    sectionBg     = Color3.fromRGB(22, 22, 26),
+    sectionBorder = Color3.fromRGB(42, 42, 48),
+    text          = Color3.fromRGB(240, 240, 245),
+    textDim       = Color3.fromRGB(160, 160, 170),
+    textMuted     = Color3.fromRGB(105, 105, 115),
+    accent        = Color3.fromRGB(180, 30, 30),
+    accentHi      = Color3.fromRGB(230, 55, 55),
+    toggleOn      = Color3.fromRGB(200, 40, 40),
+    toggleOff     = Color3.fromRGB(45, 45, 52),
+    success       = Color3.fromRGB(90, 210, 130),
+    warning       = Color3.fromRGB(235, 175, 70),
+    error         = Color3.fromRGB(240, 90, 90),
+    info          = Color3.fromRGB(110, 170, 240),
+}
+
+local function dx()
+    if gethui then
+        local dy, dz = pcall(gethui)
+        if dy and dz then return dz end
+    end
+    return k
+end
+
+local dy = Instance.new("ScreenGui")
+dy.Name = "ApexHubGUI"
+dy.ResetOnSpawn = false
+dy.IgnoreGuiInset = true
+dy.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+dy.DisplayOrder = 9999
+dy.Parent = dx()
+
+local dz = Instance.new("ScreenGui")
+dz.Name = "ApexHubToggle"
+dz.ResetOnSpawn = false
+dz.IgnoreGuiInset = true
+dz.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+dz.DisplayOrder = 9998
+dz.Parent = dx()
+
+local ea = Instance.new("ImageButton")
+ea.Name = "ToggleBtn"
+ea.Size = UDim2.fromOffset(56, 56)
+ea.Position = UDim2.new(0, 24, 0.4, 0)
+ea.BackgroundColor3 = dw.panelBg
+ea.BackgroundTransparency = 0.15
+ea.BorderSizePixel = 0
+ea.Image = o
+ea.ImageColor3 = Color3.fromRGB(255, 255, 255)
+ea.ScaleType = Enum.ScaleType.Fit
+ea.AutoButtonColor = false
+ea.Active = true
+ea.Draggable = false
+ea.Parent = dz
+
+local eb = Instance.new("UICorner")
+eb.CornerRadius = UDim.new(1, 0)
+eb.Parent = ea
+local ec = Instance.new("UIStroke")
+ec.Thickness = 1.5
+ec.Color = dw.panelBorderHi
+ec.Transparency = 0.3
+ec.Parent = ea
+local ed = Instance.new("UIPadding")
+ed.PaddingTop = UDim.new(0, 8)
+ed.PaddingBottom = UDim.new(0, 8)
+ed.PaddingLeft = UDim.new(0, 8)
+ed.PaddingRight = UDim.new(0, 8)
+ed.Parent = ea
+
+local ee, ef = 640, 400
+local evp = h.CurrentCamera and h.CurrentCamera.ViewportSize
+if evp then
+    ef = math.min(ef, math.max(320, evp.Y - 80))
+    ee = math.min(ee, math.max(560, evp.X - 40))
+end
+local eg = Instance.new("Frame")
+eg.Name = "Panel"
+eg.Size = UDim2.fromOffset(ee, ef)
+if evp then
+    eg.Position = UDim2.new(0.5, -ee / 2, 0, 40 + math.max(0, (evp.Y - 80 - ef) * 0.5))
+else
+    eg.Position = UDim2.new(0.5, -ee / 2, 0.5, -ef / 2)
+end
+eg.BackgroundColor3 = dw.panelBg
+eg.BackgroundTransparency = 0.08
+eg.BorderSizePixel = 0
+eg.ClipsDescendants = true
+eg.Active = true
+eg.Draggable = false
+eg.Visible = false
+eg.Parent = dy
+
+local eh = Instance.new("UICorner")
+eh.CornerRadius = UDim.new(0, 12)
+eh.Parent = eg
+local ei = Instance.new("UIStroke")
+ei.Thickness = 1.5
+ei.Color = dw.panelBorder
+ei.Transparency = 0.15
+ei.Parent = eg
+
+local function ej(ek, el)
+    local eo = Instance.new("UICorner"); eo.CornerRadius = UDim.new(0, el or 6); eo.Parent = ek; return eo
+end
+local function em(en, eo, ep)
+    local et = Instance.new("UIStroke"); et.Color = eo or dw.panelBorder
+    et.Thickness = ep or 1; et.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; et.Parent = en; return et
+end
+
+local eq = Instance.new("Frame")
+eq.Name = "Header"
+eq.Size = UDim2.new(1, 0, 0, 52)
+eq.BackgroundColor3 = dw.panelBg2
+eq.BackgroundTransparency = 0.05
+eq.BorderSizePixel = 0
+eq.Parent = eg
+ej(eq, 12)
+
+local er = Instance.new("Frame")
+er.Size = UDim2.new(1, 0, 0, 1)
+er.Position = UDim2.new(0, 0, 1, -1)
+er.BackgroundColor3 = dw.panelBorder
+er.BorderSizePixel = 0
+er.Parent = eq
+
+local es = Instance.new("TextLabel")
+es.BackgroundTransparency = 1
+es.Position = UDim2.fromOffset(20, 8)
+es.Size = UDim2.new(0, 300, 0, 22)
+es.Font = Enum.Font.GothamBold
+es.TextSize = 18
+es.TextColor3 = dw.text
+es.TextXAlignment = Enum.TextXAlignment.Left
+es.Text = p
+es.Parent = eq
+
+local et = Instance.new("TextLabel")
+et.BackgroundTransparency = 1
+et.Position = UDim2.fromOffset(20, 30)
+et.Size = UDim2.new(0, 400, 0, 16)
+et.Font = Enum.Font.Gotham
+et.TextSize = 12
+et.TextColor3 = dw.textDim
+et.TextXAlignment = Enum.TextXAlignment.Left
+et.Text = q
+et.Parent = eq
+
+local eu = Instance.new("TextButton")
+eu.Size = UDim2.fromOffset(96, 26)
+eu.Position = UDim2.new(1, -174, 0, 13)
+eu.BackgroundColor3 = Color3.fromRGB(60, 60, 90)
+eu.BackgroundTransparency = 0.15
+eu.BorderSizePixel = 0
+eu.AutoButtonColor = false
+eu.Font = Enum.Font.GothamSemibold
+eu.TextSize = 12
+eu.TextColor3 = dw.text
+eu.Text = "Discord"
+eu.Parent = eq
+ej(eu, 6)
+em(eu, Color3.fromRGB(90, 90, 130), 1)
+eu.MouseEnter:Connect(function() l:Create(eu, TweenInfo.new(0.15), { BackgroundTransparency = 0 }):Play() end)
+eu.MouseLeave:Connect(function() l:Create(eu, TweenInfo.new(0.15), { BackgroundTransparency = 0.15 }):Play() end)
+eu.MouseButton1Click:Connect(function()
+    pcall(function() setclipboard(n) end)
+    r.notify("Apex Hub", "Discord link copied", "Success", 3)
+end)
+
+local ev = Instance.new("TextButton")
+ev.Size = UDim2.fromOffset(28, 28)
+ev.Position = UDim2.new(1, -38, 0, 12)
+ev.BackgroundColor3 = Color3.fromRGB(50, 20, 20)
+ev.BackgroundTransparency = 0.2
+ev.BorderSizePixel = 0
+ev.AutoButtonColor = false
+ev.Font = Enum.Font.GothamBold
+ev.TextSize = 14
+ev.TextColor3 = dw.text
+ev.Text = "X"
+ev.Parent = eq
+ej(ev, 6)
+em(ev, Color3.fromRGB(120, 40, 40), 1)
+ev.MouseEnter:Connect(function() l:Create(ev, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(90, 30, 30), BackgroundTransparency = 0 }):Play() end)
+ev.MouseLeave:Connect(function() l:Create(ev, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(50, 20, 20), BackgroundTransparency = 0.2 }):Play() end)
+ev.MouseButton1Click:Connect(function() eg.Visible = false end)
+
+local ew = 150
+local ex = Instance.new("Frame")
+ex.Position = UDim2.fromOffset(0, 52)
+ex.Size = UDim2.new(0, ew, 1, -52)
+ex.BackgroundColor3 = dw.sidebarBg
+ex.BackgroundTransparency = 0.1
+ex.BorderSizePixel = 0
+ex.Parent = eg
+
+local ey = Instance.new("ScrollingFrame")
+ey.BackgroundTransparency = 1
+ey.BorderSizePixel = 0
+ey.Size = UDim2.new(1, 0, 1, 0)
+ey.CanvasSize = UDim2.new(0, 0, 0, 0)
+ey.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ey.ScrollBarThickness = 3
+ey.ScrollBarImageColor3 = dw.accent
+ey.Parent = ex
+
+local ez = Instance.new("UIListLayout")
+ez.Padding = UDim.new(0, 4)
+ez.SortOrder = Enum.SortOrder.LayoutOrder
+ez.Parent = ey
+
+local fa = Instance.new("UIPadding")
+fa.PaddingTop = UDim.new(0, 10)
+fa.PaddingLeft = UDim.new(0, 8)
+fa.PaddingRight = UDim.new(0, 8)
+fa.Parent = ey
+
+local fb = Instance.new("Frame")
+fb.Position = UDim2.fromOffset(ew + 10, 62)
+fb.Size = UDim2.new(1, -(ew + 20), 1, -72)
+fb.BackgroundTransparency = 1
+fb.BorderSizePixel = 0
+fb.Parent = eg
+
+local fc = Instance.new("ScrollingFrame")
+fc.BackgroundTransparency = 1
+fc.BorderSizePixel = 0
+fc.Size = UDim2.new(1, 0, 1, 0)
+fc.CanvasSize = UDim2.new(0, 0, 0, 0)
+fc.AutomaticCanvasSize = Enum.AutomaticSize.Y
+fc.ScrollBarThickness = 4
+fc.ScrollBarImageColor3 = dw.accent
+fc.Parent = fb
+
+local fd = Instance.new("UIListLayout")
+fd.Padding = UDim.new(0, 10)
+fd.SortOrder = Enum.SortOrder.LayoutOrder
+fd.Parent = fc
+
+local fe = Instance.new("UIPadding")
+fe.PaddingRight = UDim.new(0, 8)
+fe.PaddingBottom = UDim.new(0, 12)
+fe.Parent = fc
+
+local function ff(fg, fh)
+    fh = fh or fg
+    local fk, fl, fm, fp = false, nil, nil, nil
+    du(fh.InputBegan:Connect(function(fn)
+        if fn.UserInputType == Enum.UserInputType.MouseButton1
+        or fn.UserInputType == Enum.UserInputType.Touch then
+            fk = true
+            fl = fn.Position
+            fm = fg.Position
+            fp = fg.AbsolutePosition
+            fn.Changed:Connect(function()
+                if fn.UserInputState == Enum.UserInputState.End then fk = false end
+            end)
+        end
+    end))
+    du(f.InputChanged:Connect(function(fn)
+        if fk and fp and (fn.UserInputType == Enum.UserInputType.MouseMovement
+        or fn.UserInputType == Enum.UserInputType.Touch) then
+            local fo = fn.Position - fl
+            local fq = fp.X + fo.X
+            local fr = fp.Y + fo.Y
+            local vs = h.CurrentCamera and h.CurrentCamera.ViewportSize
+            if vs then
+                fq = math.clamp(fq, 6, vs.X - fg.AbsoluteSize.X - 6)
+                fr = math.clamp(fr, 6, vs.Y - fg.AbsoluteSize.Y - 6)
+            end
+            fg.Position = UDim2.new(
+                fm.X.Scale, fq - fm.X.Scale * (vs and vs.X or 0),
+                fm.Y.Scale, fr - fm.Y.Scale * (vs and vs.Y or 0)
+            )
+        end
+    end))
+end
+ff(eg, eq)
+
+do
+    local fi, fj, fk, fl, fp = false, nil, nil, false, nil
+    du(ea.InputBegan:Connect(function(fm)
+        if fm.UserInputType == Enum.UserInputType.MouseButton1
+        or fm.UserInputType == Enum.UserInputType.Touch then
+            fi = true
+            fl = false
+            fj = fm.Position
+            fk = ea.Position
+            fp = ea.AbsolutePosition
+            fm.Changed:Connect(function()
+                if fm.UserInputState == Enum.UserInputState.End then fi = false end
+            end)
+        end
+    end))
+    du(f.InputChanged:Connect(function(fm)
+        if fi and fp and (fm.UserInputType == Enum.UserInputType.MouseMovement
+        or fm.UserInputType == Enum.UserInputType.Touch) then
+            local fn = fm.Position - fj
+            if math.abs(fn.X) > 4 or math.abs(fn.Y) > 4 then fl = true end
+            local fq = fp.X + fn.X
+            local fr = fp.Y + fn.Y
+            local vs = h.CurrentCamera and h.CurrentCamera.ViewportSize
+            if vs then
+                fq = math.clamp(fq, 6, vs.X - ea.AbsoluteSize.X - 6)
+                fr = math.clamp(fr, 6, vs.Y - ea.AbsoluteSize.Y - 6)
+            end
+            ea.Position = UDim2.new(
+                fk.X.Scale, fq - fk.X.Scale * (vs and vs.X or 0),
+                fk.Y.Scale, fr - fk.Y.Scale * (vs and vs.Y or 0)
+            )
+        end
+    end))
+    du(ea.MouseButton1Click:Connect(function()
+        if fl then return end
+        eg.Visible = not eg.Visible
+    end))
+    du(ea.MouseEnter:Connect(function()
+        l:Create(ea, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(28, 28, 34), BackgroundTransparency = 0 }):Play()
+        l:Create(ec, TweenInfo.new(0.15), { Color = dw.accent, Transparency = 0 }):Play()
+    end))
+    du(ea.MouseLeave:Connect(function()
+        l:Create(ea, TweenInfo.new(0.15), { BackgroundColor3 = dw.panelBg, BackgroundTransparency = 0.15 }):Play()
+        l:Create(ec, TweenInfo.new(0.15), { Color = dw.panelBorderHi, Transparency = 0.3 }):Play()
+    end))
+end
+
 function dt.GetState(fi) return dt.__state[fi] end
 function dt.SetState(fi, fj, fk)
     dt.__state[fi] = fj
@@ -2259,403 +2576,903 @@ function r.matchesEggFilters(fi, fj, fk, fl)
     return r.matchesMutationFilter(fl, fi)
 end
 
-function r.notify(title, content, kind, duration)
-    pcall(function()
-        if not Library then return end
-        local nt = {
-            Title = tostring(title or "NiCH HUB"),
-            Content = tostring(content or ""),
-            Duration = tonumber(duration) or 3,
-        }
-        if kind == "Warning" then nt.Title = "[WARN] " .. nt.Title end
-        if kind == "Error" then nt.Title = "[ERR] " .. nt.Title end
-        Library:Notify(nt)
+local function fi(fj, fk)
+    local fn = Instance.new("TextButton")
+    fn.Name = "Tab_" .. fj
+    fn.Size = UDim2.new(1, 0, 0, 32)
+    fn.BackgroundColor3 = dw.sectionBg
+    fn.BackgroundTransparency = 0.5
+    fn.BorderSizePixel = 0
+    fn.AutoButtonColor = false
+    fn.Font = Enum.Font.GothamMedium
+    fn.TextSize = 13
+    fn.TextColor3 = dw.textDim
+    fn.TextXAlignment = Enum.TextXAlignment.Left
+    fn.Text = fk
+    fn.Parent = ey
+    ej(fn, 6)
+    local fo = Instance.new("UIPadding"); fo.PaddingLeft = UDim.new(0, 12); fo.Parent = fn
+
+    local fp = Instance.new("Frame")
+    fp.Size = UDim2.new(0, 3, 0, 0)
+    fp.Position = UDim2.new(0, 0, 0.5, 0)
+    fp.AnchorPoint = Vector2.new(0, 0.5)
+    fp.BackgroundColor3 = dw.accent
+    fp.BorderSizePixel = 0
+    fp.Parent = fn
+    ej(fp, 2)
+
+    local function fq(fr)
+        if fr then
+            l:Create(fn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(30, 20, 20), BackgroundTransparency = 0.2 }):Play()
+            l:Create(fn, TweenInfo.new(0.15), { TextColor3 = dw.text }):Play()
+            l:Create(fp, TweenInfo.new(0.15), { Size = UDim2.new(0, 3, 0.7, 0) }):Play()
+        else
+            l:Create(fn, TweenInfo.new(0.15), { BackgroundColor3 = dw.sectionBg, BackgroundTransparency = 0.5 }):Play()
+            l:Create(fn, TweenInfo.new(0.15), { TextColor3 = dw.textDim }):Play()
+            l:Create(fp, TweenInfo.new(0.15), { Size = UDim2.new(0, 3, 0, 0) }):Play()
+        end
+    end
+    fn.MouseEnter:Connect(function()
+        if dt.__activeTab ~= fj then
+            l:Create(fn, TweenInfo.new(0.15), { BackgroundTransparency = 0.25 }):Play()
+            l:Create(fn, TweenInfo.new(0.15), { TextColor3 = dw.text }):Play()
+        end
     end)
-end
-
-local function addStatusRow(section, title, value)
-    local row = Instance.new("Frame")
-    row.BackgroundTransparency = 1
-    row.Parent = section.Container
-    row.Size = UDim2.new(1, 0, 0, 22)
-
-    local t = Instance.new("TextLabel")
-    t.BackgroundTransparency = 1
-    t.Size = UDim2.new(0.55, -4, 1, 0)
-    t.Font = Enum.Font.GothamMedium
-    t.TextSize = 13
-    t.TextColor3 = Color3.fromRGB(200, 200, 210)
-    t.TextXAlignment = Enum.TextXAlignment.Left
-    t.Text = title
-    t.Parent = row
-
-    local v = Instance.new("TextLabel")
-    v.BackgroundTransparency = 1
-    v.Size = UDim2.new(0.45, 0, 1, 0)
-    v.Position = UDim2.new(0.55, 0, 0, 0)
-    v.Font = Enum.Font.GothamBold
-    v.TextSize = 13
-    v.TextColor3 = Color3.fromRGB(120, 180, 255)
-    v.TextXAlignment = Enum.TextXAlignment.Right
-    v.Text = tostring(value or "")
-    v.Parent = row
-
-    local obj = {}
-    function obj.SetValue(x) v.Text = tostring(x) end
-    function obj.SetStatus(k)
-        if k == "Success" then v.TextColor3 = Color3.fromRGB(90, 210, 130)
-        elseif k == "Warning" then v.TextColor3 = Color3.fromRGB(235, 175, 70)
-        elseif k == "Error" then v.TextColor3 = Color3.fromRGB(240, 90, 90)
-        else v.TextColor3 = Color3.fromRGB(160, 160, 170) end
-    end
-    return obj
-end
-
-local function addSectionSafe(parent, title)
-    if not parent then return nil end
-    local ok, sec = pcall(function() return parent:AddLeftGroupbox(title) end)
-    if not ok then
-        ok, sec = pcall(function() return parent:AddRightGroupbox(title) end)
-    end
-    if not ok or not sec then
-        pcall(function() if Library then Library:Notify({ Title = "UI skip", Content = "Section \"" .. title .. "\": " .. tostring(sec) }) end end)
-        return nil
-    end
-    return sec
-end
-
-local function addStatusRowSafe(section, title, value)
-    if not section then return nil end
-    local ctr = section.Container or section
-    local row = Instance.new("Frame")
-    row.BackgroundTransparency = 1
-    row.Size = UDim2.new(1, 0, 0, 20)
-    row.Parent = ctr
-
-    local t = Instance.new("TextLabel")
-    t.BackgroundTransparency = 1
-    t.Size = UDim2.new(0.5, 0, 1, 0)
-    t.Font = Enum.Font.GothamMedium
-    t.TextSize = 13
-    t.TextColor3 = Color3.fromRGB(190, 190, 200)
-    t.TextXAlignment = Enum.TextXAlignment.Left
-    t.Text = title
-    t.Parent = row
-
-    local v = Instance.new("TextLabel")
-    v.BackgroundTransparency = 1
-    v.Size = UDim2.new(0.5, 0, 1, 0)
-    v.Position = UDim2.new(0.5, 0, 0, 0)
-    v.Font = Enum.Font.GothamBold
-    v.TextSize = 13
-    v.TextColor3 = Color3.fromRGB(130, 200, 255)
-    v.TextXAlignment = Enum.TextXAlignment.Right
-    v.Text = tostring(value or "")
-    v.Parent = row
-
-    local obj = {}
-    function obj.SetValue(x) v.Text = tostring(x) end
-    function obj.SetStatus(k)
-        if k == "Success" then v.TextColor3 = Color3.fromRGB(90, 210, 130)
-        elseif k == "Warning" then v.TextColor3 = Color3.fromRGB(235, 175, 70)
-        elseif k == "Error" then v.TextColor3 = Color3.fromRGB(240, 90, 90)
-        else v.TextColor3 = Color3.fromRGB(160, 160, 170) end
-    end
-    return obj
-end
-
-local addStatusRow = addStatusRowSafe
-
-local function addToggle(parent, opt)
-    local id = opt.Id
-    dt.SetState(id, opt.Default == true, false)
-    local fresh = true
-    local ok, ctl = pcall(function()
-        return parent:AddToggle(id, {
-            Text = opt.Title,
-            Default = opt.Default == true,
-            Callback = function(v)
-                if fresh then fresh = false; return end
-                dt.SetState(id, v, true)
-                if opt.Callback then pcall(opt.Callback, v) end
-            end,
-        })
+    fn.MouseLeave:Connect(function()
+        if dt.__activeTab ~= fj then fq(false) end
     end)
-    if not ok or not ctl then
-        pcall(function() if Library then Library:Notify({ Title = "UI skip", Content = "Toggle \"" .. id .. "\": " .. tostring(ctl) }) end end)
-        return nil
-    end
-    fresh = false
-    return ctl
+    return fn, fq
 end
 
-local function addSlider(parent, opt)
-    local id = opt.Id
-    local defv = tonumber(opt.Default) or tonumber(opt.Min) or 0
-    dt.SetState(id, defv, false)
-    local fresh = true
-    local ok, ctl = pcall(function()
-        return parent:AddSlider(id, {
-            Text = opt.Title,
-            Min = tonumber(opt.Min) or 0,
-            Max = tonumber(opt.Max) or 100,
-            Default = defv,
-            Rounding = tonumber(opt.Step) or 1,
-            Suffix = opt.Suffix or "",
-            Callback = function(v)
-                if fresh then fresh = false; return end
-                dt.SetState(id, tonumber(v) or 0, true)
-                if opt.Callback then pcall(opt.Callback, tonumber(v) or 0) end
-            end,
-        })
+function dt.AddTab(fl)
+    local fm = fl.Id
+    local fn, fo = fi(fm, fl.Title)
+    local fp = Instance.new("ScrollingFrame")
+    fp.BackgroundTransparency = 1
+    fp.BorderSizePixel = 0
+    fp.Size = UDim2.new(1, 0, 1, 0)
+    fp.CanvasSize = UDim2.new(0, 0, 0, 0)
+    fp.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    fp.ScrollBarThickness = 4
+    fp.ScrollBarImageColor3 = dw.accent
+    fp.Visible = false
+    fp.Parent = fc
+    local fq = Instance.new("UIListLayout")
+    fq.Padding = UDim.new(0, 10)
+    fq.SortOrder = Enum.SortOrder.LayoutOrder
+    fq.Parent = fp
+    local fr = Instance.new("UIPadding"); fr.PaddingRight = UDim.new(0, 6); fr.Parent = fp
+
+    local fs = { Id = fm, Page = fp, Button = fn, SetActive = fo }
+    fn.MouseButton1Click:Connect(function()
+        if dt.__activeTab == fm then return end
+        for ft, fu in pairs(dt.__tabs) do
+            fu.Page.Visible = (ft == fm)
+            fu.SetActive(ft == fm)
+        end
+        dt.__activeTab = fm
     end)
-    if not ok or not ctl then
-        pcall(function() if Library then Library:Notify({ Title = "UI skip", Content = "Slider \"" .. id .. "\": " .. tostring(ctl) }) end end)
-        return nil
+    dt.__tabs[fm] = fs
+    if not dt.__activeTab then
+        dt.__activeTab = fm
+        fp.Visible = true
+        fo(true)
     end
-    fresh = false
-    return ctl
+    return fs
 end
 
-local function addDropdown(parent, opt)
-    local id = opt.Id
-    local defv = opt.Default
-    dt.SetState(id, defv, false)
-    local fresh = true
-    local ok, ctl = pcall(function()
-        return parent:AddDropdown(id, {
-            Text = opt.Title,
-            Values = opt.Options or {},
-            Multi = opt.Multi == true,
-            Default = defv,
-            Callback = function(v)
-                if fresh then fresh = false; return end
-                dt.SetState(id, v, true)
-                if opt.Callback then pcall(opt.Callback, v) end
-            end,
-        })
+function dt.AddSection(fl, fm)
+    local fn = Instance.new("Frame")
+    fn.BackgroundColor3 = dw.sectionBg
+    fn.BackgroundTransparency = 0.35
+    fn.BorderSizePixel = 0
+    fn.Size = UDim2.new(1, 0, 0, 0)
+    fn.AutomaticSize = Enum.AutomaticSize.Y
+    fn.Parent = fl.Page
+    ej(fn, 8)
+    em(fn, dw.sectionBorder, 1)
+    local fo = Instance.new("UIListLayout")
+    fo.Padding = UDim.new(0, 6)
+    fo.SortOrder = Enum.SortOrder.LayoutOrder
+    fo.Parent = fn
+    local fp = Instance.new("UIPadding")
+    fp.PaddingTop = UDim.new(0, 10)
+    fp.PaddingBottom = UDim.new(0, 10)
+    fp.PaddingLeft = UDim.new(0, 12)
+    fp.PaddingRight = UDim.new(0, 12)
+    fp.Parent = fn
+
+    if fm.Title then
+        local fq = Instance.new("TextLabel")
+        fq.BackgroundTransparency = 1
+        fq.Size = UDim2.new(1, 0, 0, 20)
+        fq.Font = Enum.Font.GothamBold
+        fq.TextSize = 13
+        fq.TextColor3 = dw.text
+        fq.TextXAlignment = Enum.TextXAlignment.Left
+        fq.Text = fm.Title
+        fq.Parent = fn
+    end
+    if fm.Description then
+        local fq = Instance.new("TextLabel")
+        fq.BackgroundTransparency = 1
+        fq.Size = UDim2.new(1, 0, 0, 16)
+        fq.Font = Enum.Font.Gotham
+        fq.TextSize = 11
+        fq.TextColor3 = dw.textMuted
+        fq.TextXAlignment = Enum.TextXAlignment.Left
+        fq.TextWrapped = true
+        fq.Text = fm.Description
+        fq.Parent = fn
+    end
+    return fn
+end
+
+local function fl(fm, fn)
+    local fq = Instance.new("Frame")
+    fq.BackgroundColor3 = dw.panelBg2
+    fq.BackgroundTransparency = 0.4
+    fq.BorderSizePixel = 0
+    fq.Size = UDim2.new(1, 0, 0, fn or 30)
+    fq.Parent = fm
+    ej(fq, 6)
+    local fr = Instance.new("UIPadding")
+    fr.PaddingLeft = UDim.new(0, 10)
+    fr.PaddingRight = UDim.new(0, 10)
+    fr.Parent = fq
+    return fq
+end
+
+function dt.AddToggle(fo, fp)
+    local fq = fl(fo, 36)
+    local fr = Instance.new("TextLabel")
+    fr.BackgroundTransparency = 1
+    fr.Size = UDim2.new(1, -60, 0, 22)
+    fr.Font = Enum.Font.GothamMedium
+    fr.TextSize = 13
+    fr.TextColor3 = dw.text
+    fr.TextXAlignment = Enum.TextXAlignment.Left
+    fr.Text = fp.Title or "Toggle"
+    fr.Parent = fq
+    if fp.Description then
+        local fs = Instance.new("TextLabel")
+        fs.BackgroundTransparency = 1
+        fs.Position = UDim2.fromOffset(0, 20)
+        fs.Size = UDim2.new(1, -60, 0, 14)
+        fs.Font = Enum.Font.Gotham
+        fs.TextSize = 11
+        fs.TextColor3 = dw.textMuted
+        fs.TextXAlignment = Enum.TextXAlignment.Left
+        fs.Text = fp.Description
+        fs.Parent = fq
+    end
+    local fs = Instance.new("TextButton")
+    fs.Size = UDim2.fromOffset(40, 22)
+    fs.Position = UDim2.new(1, -40, 0.5, -11)
+    fs.BackgroundColor3 = dw.toggleOff
+    fs.BorderSizePixel = 0
+    fs.Text = ""
+    fs.AutoButtonColor = false
+    fs.Parent = fq
+    ej(fs, 11)
+    local ft = Instance.new("Frame")
+    ft.Size = UDim2.fromOffset(18, 18)
+    ft.Position = UDim2.fromOffset(2, 2)
+    ft.BackgroundColor3 = dw.text
+    ft.BorderSizePixel = 0
+    ft.Parent = fs
+    ej(ft, 9)
+    local fu = fp.Default == true
+    local function fv(fw)
+        local fy = TweenInfo.new(fw and 0.18 or 0)
+        l:Create(fs, fy, { BackgroundColor3 = fu and dw.toggleOn or dw.toggleOff }):Play()
+        l:Create(ft, fy, { Position = fu and UDim2.fromOffset(20, 2) or UDim2.fromOffset(2, 2) }):Play()
+    end
+    fv(false)
+    dt.__state[fp.Id] = fu
+    fs.MouseButton1Click:Connect(function()
+        fu = not fu
+        dt.SetState(fp.Id, fu, true)
+        fv(true)
+        if fp.Callback then pcall(fp.Callback, fu) end
     end)
-    if not ok or not ctl then
-        pcall(function() if Library then Library:Notify({ Title = "UI skip", Content = "Dropdown \"" .. id .. "\": " .. tostring(ctl) }) end end)
-        return nil
-    end
-    fresh = false
-    return ctl
+    return fs
 end
 
-local function addButton(parent, opt)
-    local ok, ctl = pcall(function()
-        return parent:AddButton({
-            Text = opt.Title,
-            Callback = function()
-                if opt.Callback then pcall(opt.Callback) end
-            end,
-        })
+function dt.AddSlider(fo, fp)
+    local fq = fl(fo, 44)
+    local fr = Instance.new("TextLabel")
+    fr.BackgroundTransparency = 1
+    fr.Size = UDim2.new(1, -80, 0, 20)
+    fr.Font = Enum.Font.GothamMedium
+    fr.TextSize = 13
+    fr.TextColor3 = dw.text
+    fr.TextXAlignment = Enum.TextXAlignment.Left
+    fr.Text = fp.Title or "Slider"
+    fr.Parent = fq
+    local fs = Instance.new("TextLabel")
+    fs.BackgroundTransparency = 1
+    fs.Position = UDim2.new(1, -80, 0, 0)
+    fs.Size = UDim2.fromOffset(80, 20)
+    fs.Font = Enum.Font.GothamBold
+    fs.TextSize = 12
+    fs.TextColor3 = dw.accentHi
+    fs.TextXAlignment = Enum.TextXAlignment.Right
+    fs.Parent = fq
+    local ft = Instance.new("Frame")
+    ft.Position = UDim2.fromOffset(0, 26)
+    ft.Size = UDim2.new(1, 0, 0, 6)
+    ft.BackgroundColor3 = dw.toggleOff
+    ft.BorderSizePixel = 0
+    ft.Parent = fq
+    ej(ft, 3)
+    local fu = Instance.new("Frame")
+    fu.Size = UDim2.new(0, 0, 1, 0)
+    fu.BackgroundColor3 = dw.accent
+    fu.BorderSizePixel = 0
+    fu.Parent = ft
+    ej(fu, 3)
+    local fv = Instance.new("Frame")
+    fv.Size = UDim2.fromOffset(14, 14)
+    fv.AnchorPoint = Vector2.new(0.5, 0.5)
+    fv.Position = UDim2.new(0, 0, 0.5, 0)
+    fv.BackgroundColor3 = dw.text
+    fv.BorderSizePixel = 0
+    fv.Parent = ft
+    ej(fv, 7)
+    local fw, fx, fy = fp.Min or 0, fp.Max or 100, fp.Step or 1
+    local fz = fp.Suffix or ""
+    local ga = tonumber(fp.Default) or fw
+    dt.__state[fp.Id] = ga
+    local function gb()
+        local gc = (ga - fw) / math.max(0.0001, (fx - fw))
+        fu.Size = UDim2.new(gc, 0, 1, 0)
+        fv.Position = UDim2.new(gc, 0, 0.5, 0)
+        fs.Text = tostring(ga) .. fz
+    end
+    gb()
+    local gc = false
+    local function gd(ge)
+        local gg = ft.AbsolutePosition.X
+        local gh = ft.AbsoluteSize.X
+        local gi = math.clamp((ge - gg) / math.max(1, gh), 0, 1)
+        local gj = fw + gi * (fx - fw)
+        local gk = math.floor((gj - fw) / fy + 0.5) * fy + fw
+        gk = math.clamp(gk, fw, fx)
+        if gk ~= ga then
+            ga = gk
+            dt.SetState(fp.Id, ga, true)
+            gb()
+            if fp.Callback then pcall(fp.Callback, ga) end
+        end
+    end
+    ft.InputBegan:Connect(function(gf)
+        if gf.UserInputType == Enum.UserInputType.MouseButton1
+        or gf.UserInputType == Enum.UserInputType.Touch then
+            gc = true
+            gd(gf.Position.X)
+        end
     end)
-    if not ok or not ctl then
-        pcall(function() if Library then Library:Notify({ Title = "UI skip", Content = "Button \"" .. tostring(opt.Title) .. "\": " .. tostring(ctl) }) end end)
-        return nil
-    end
-    return ctl
+    du(f.InputChanged:Connect(function(gf)
+        if gc and (gf.UserInputType == Enum.UserInputType.MouseMovement
+        or gf.UserInputType == Enum.UserInputType.Touch) then
+            gd(gf.Position.X)
+        end
+    end))
+    du(f.InputEnded:Connect(function(gf)
+        if gf.UserInputType == Enum.UserInputType.MouseButton1
+        or gf.UserInputType == Enum.UserInputType.Touch then
+            gc = false
+        end
+    end))
+    return ft
 end
 
-local function addParagraph(parent, opt)
-    local ok, ctl = pcall(function()
-        local lbl = Instance.new("TextLabel")
-        lbl.BackgroundTransparency = 1
-        lbl.Font = Enum.Font.GothamMedium
-        lbl.TextSize = 13
-        lbl.TextColor3 = Color3.fromRGB(200, 200, 210)
-        lbl.TextWrapped = true
-        lbl.Size = UDim2.new(1, 0, 0, 42)
-        lbl.Text = tostring(opt.Title or "") .. "\n" .. tostring(opt.Content or "")
-        lbl.Parent = parent.Container or parent
-        return lbl
-    end)
-    if not ok or not ctl then
-        pcall(function() if Library then Library:Notify({ Title = "UI skip", Content = "Paragraph: " .. tostring(ctl) }) end end)
-        return nil
+function dt.AddDropdown(fo, fp)
+    local fq = fp.Multi == true
+    local fr = fl(fo, 34)
+    local fs = Instance.new("TextLabel")
+    fs.BackgroundTransparency = 1
+    fs.Size = UDim2.new(1, -120, 1, 0)
+    fs.Font = Enum.Font.GothamMedium
+    fs.TextSize = 13
+    fs.TextColor3 = dw.text
+    fs.TextXAlignment = Enum.TextXAlignment.Left
+    fs.Text = fp.Title or "Dropdown"
+    fs.Parent = fr
+    local ft = Instance.new("TextLabel")
+    ft.BackgroundTransparency = 1
+    ft.Position = UDim2.new(1, -210, 0, 0)
+    ft.Size = UDim2.fromOffset(170, 34)
+    ft.Font = Enum.Font.Gotham
+    ft.TextSize = 12
+    ft.TextColor3 = dw.textDim
+    ft.TextXAlignment = Enum.TextXAlignment.Right
+    ft.TextTruncate = Enum.TextTruncate.AtEnd
+    ft.Parent = fr
+    local fu = Instance.new("TextButton")
+    fu.Size = UDim2.fromOffset(28, 24)
+    fu.Position = UDim2.new(1, -32, 0.5, -12)
+    fu.BackgroundColor3 = dw.toggleOff
+    fu.BackgroundTransparency = 0.4
+    fu.BorderSizePixel = 0
+    fu.AutoButtonColor = false
+    fu.Font = Enum.Font.GothamBold
+    fu.TextSize = 12
+    fu.TextColor3 = dw.text
+    fu.Text = "v"
+    fu.Parent = fr
+    ej(fu, 4)
+
+    local fv = Instance.new("Frame")
+    fv.BackgroundColor3 = dw.panelBg2
+    fv.BorderSizePixel = 0
+    fv.Size = UDim2.new(1, 0, 0, 0)
+    fv.AutomaticSize = Enum.AutomaticSize.Y
+    fv.Visible = false
+    fv.Parent = fo
+    ej(fv, 6)
+    em(fv, dw.panelBorder, 1)
+    local fw = Instance.new("UIListLayout")
+    fw.Padding = UDim.new(0, 2)
+    fw.SortOrder = Enum.SortOrder.LayoutOrder
+    fw.Parent = fv
+    local fx = Instance.new("UIPadding")
+    fx.PaddingTop = UDim.new(0, 4)
+    fx.PaddingBottom = UDim.new(0, 4)
+    fx.PaddingLeft = UDim.new(0, 4)
+    fx.PaddingRight = UDim.new(0, 4)
+    fx.Parent = fv
+
+    local fy
+    if fq then
+        fy = {}
+        if typeof(fp.Default) == "table" then
+            for _, fz in ipairs(fp.Default) do fy[fz] = true end
+        end
+        dt.__state[fp.Id] = {}
+        for fz in pairs(fy) do table.insert(dt.__state[fp.Id], fz) end
+    else
+        fy = fp.Default or (fp.Options and fp.Options[1])
+        dt.__state[fp.Id] = fy
     end
-    return ctl
-end
 
-local function addInput(parent, opt)
-    local id = opt.Id
-    local defv = tostring(opt.Default or "")
-    dt.SetState(id, defv, false)
-    local fresh = true
-    local ok, ctl = pcall(function()
-        return parent:AddInput(id, {
-            Text = opt.Title,
-            Default = defv,
-            Numeric = opt.Numeric == true,
-            Finished = function(v)
-                if fresh then fresh = false; return end
-                dt.SetState(id, v, true)
-                if opt.Callback then pcall(opt.Callback, v) end
-            end,
-        })
-    end)
-    if not ok or not ctl then
-        pcall(function() if Library then Library:Notify({ Title = "UI skip", Content = "Input \"" .. id .. "\": " .. tostring(ctl) }) end end)
-        return nil
+    local function fz()
+        if fq then
+            local ga = {}
+            for gb in pairs(fy) do if fy[gb] then table.insert(ga, gb) end end
+            table.sort(ga)
+            if #ga == 0 then ft.Text = "All"
+            elseif #ga <= 2 then ft.Text = table.concat(ga, ", ")
+            else ft.Text = string.format("%s +%d", ga[1], #ga - 1) end
+        else
+            ft.Text = tostring(fy or "")
+        end
     end
-    fresh = false
-    return ctl
-end
+    fz()
 
-local function safeTab(window, title)
-    if not window then return nil end
-    local ok, tab = pcall(function() return window:AddTab(title:lower()) end)
-    if not ok or not tab then
-        pcall(function() if Library then Library:Notify({ Title = "UI skip", Content = "Tab \"" .. title .. "\": " .. tostring(tab) }) end end)
-        return nil
-    end
-    return tab
-end
+    local ga = {}
+    for _, gb in ipairs(fp.Options or {}) do
+        local gc = Instance.new("TextButton")
+        gc.Size = UDim2.new(1, 0, 0, 24)
+        gc.BackgroundColor3 = dw.sectionBg
+        gc.BackgroundTransparency = 0.6
+        gc.BorderSizePixel = 0
+        gc.AutoButtonColor = false
+        gc.Font = Enum.Font.Gotham
+        gc.TextSize = 12
+        gc.TextColor3 = dw.text
+        gc.TextXAlignment = Enum.TextXAlignment.Left
+        gc.Text = "  " .. tostring(gb)
+        gc.Parent = fv
+        ej(gc, 4)
+        ga[gb] = gc
 
-local addTab = safeTab
+        local function gd()
+            local ge
+            if fq then ge = fy[gb] == true
+            else ge = (fy == gb) end
+            gc.TextColor3 = ge and dw.accentHi or dw.text
+        end
+        gd()
 
-local Window = nil
-do
-    if Library then
-        local ok, ctl = pcall(function()
-            return Library:CreateWindow({
-                Title = "NiCH HUB (LinoriaLib)",
-                ShowCustomCursor = false,
-            })
+        gc.MouseEnter:Connect(function() l:Create(gc, TweenInfo.new(0.12), { BackgroundTransparency = 0.3 }):Play() end)
+        gc.MouseLeave:Connect(function()
+            l:Create(gc, TweenInfo.new(0.12), { BackgroundTransparency = 0.6 }):Play()
+            gd()
         end)
-        if ok and ctl then Window = ctl end
+        gc.MouseButton1Click:Connect(function()
+            if fq then
+                fy[gb] = not fy[gb]
+                local ge = {}
+                for gf, gg in pairs(fy) do if gg then table.insert(ge, gf) end end
+                dt.SetState(fp.Id, ge, true)
+            else
+                fy = gb
+                dt.SetState(fp.Id, fy, true)
+            end
+            for ge, gf in pairs(ga) do
+                local gg = fq and fy[ge] == true or (not fq and fy == ge)
+                gf.TextColor3 = gg and dw.accentHi or dw.text
+            end
+            fz()
+            if fp.Callback then pcall(fp.Callback, dt.__state[fp.Id]) end
+            if not fq then
+                fv.Visible = false
+                fu.Text = "v"
+            end
+        end)
     end
+
+    fu.MouseButton1Click:Connect(function()
+        fv.Visible = not fv.Visible
+        fu.Text = fv.Visible and "^" or "v"
+    end)
+    return fu
 end
 
-if Window then
+function dt.AddButton(fo, fp)
+    local fq = fl(fo, 34)
+    local fr = Instance.new("TextButton")
+    fr.Size = UDim2.new(1, 0, 1, 0)
+    fr.BackgroundTransparency = 1
+    fr.BorderSizePixel = 0
+    fr.AutoButtonColor = false
+    fr.Font = Enum.Font.GothamSemibold
+    fr.TextSize = 13
+    fr.TextColor3 = dw.text
+    fr.Text = fp.Title or "Button"
+    fr.TextXAlignment = Enum.TextXAlignment.Left
+    fr.Parent = fq
+    local fs = Instance.new("TextLabel")
+    fs.BackgroundColor3 = dw.accent
+    fs.BackgroundTransparency = 0.2
+    fs.Size = UDim2.fromOffset(70, 24)
+    fs.Position = UDim2.new(1, -70, 0.5, -12)
+    fs.Font = Enum.Font.GothamBold
+    fs.TextSize = 12
+    fs.TextColor3 = dw.text
+    fs.Text = fp.Text or "Run"
+    fs.Parent = fq
+    ej(fs, 4)
+    fr.MouseEnter:Connect(function() l:Create(fs, TweenInfo.new(0.12), { BackgroundTransparency = 0 }):Play() end)
+    fr.MouseLeave:Connect(function() l:Create(fs, TweenInfo.new(0.12), { BackgroundTransparency = 0.2 }):Play() end)
+    fr.MouseButton1Click:Connect(function()
+        if fp.Callback then pcall(fp.Callback) end
+    end)
+    return fr
+end
 
+function dt.AddParagraph(fo, fp)
+    local fq = fl(fo, 44)
+    local fr = Instance.new("TextLabel")
+    fr.BackgroundTransparency = 1
+    fr.Size = UDim2.new(1, 0, 0, 18)
+    fr.Font = Enum.Font.GothamBold
+    fr.TextSize = 12
+    fr.TextColor3 = dw.text
+    fr.TextXAlignment = Enum.TextXAlignment.Left
+    fr.Text = fp.Title or ""
+    fr.Parent = fq
+    local fs = Instance.new("TextLabel")
+    fs.BackgroundTransparency = 1
+    fs.Position = UDim2.fromOffset(0, 18)
+    fs.Size = UDim2.new(1, 0, 0, 26)
+    fs.Font = Enum.Font.Gotham
+    fs.TextSize = 11
+    fs.TextColor3 = dw.textDim
+    fs.TextXAlignment = Enum.TextXAlignment.Left
+    fs.TextWrapped = true
+    fs.TextYAlignment = Enum.TextYAlignment.Top
+    fs.Text = fp.Content or ""
+    fs.Parent = fq
+    return fq
+end
+
+function dt.AddDivider(fo, fp)
+    local fq = Instance.new("Frame")
+    fq.BackgroundTransparency = 1
+    fq.Size = UDim2.new(1, 0, 0, 12)
+    fq.Parent = fo
+    local fr = Instance.new("Frame")
+    fr.BackgroundColor3 = dw.panelBorder
+    fr.BorderSizePixel = 0
+    fr.Position = UDim2.new(0, 0, 0.5, 0)
+    fr.Size = UDim2.new(1, 0, 0, 1)
+    fr.Parent = fq
+    if fp and fp.Title then
+        local fs = Instance.new("TextLabel")
+        fs.BackgroundTransparency = 1
+        fs.Size = UDim2.new(1, 0, 1, 0)
+        fs.Font = Enum.Font.Gotham
+        fs.TextSize = 11
+        fs.TextColor3 = dw.textMuted
+        fs.TextXAlignment = Enum.TextXAlignment.Center
+        fs.Text = fp.Title
+        fs.Parent = fq
+    end
+    return fq
+end
+
+function dt.AddStatus(fo, fp)
+    local fq = fl(fo, 26)
+    local fr = Instance.new("TextLabel")
+    fr.BackgroundTransparency = 1
+    fr.Size = UDim2.new(0.6, 0, 1, 0)
+    fr.Font = Enum.Font.Gotham
+    fr.TextSize = 12
+    fr.TextColor3 = dw.textDim
+    fr.TextXAlignment = Enum.TextXAlignment.Left
+    fr.Text = fp.Title or "Status"
+    fr.Parent = fq
+    local fs = Instance.new("TextLabel")
+    fs.BackgroundTransparency = 1
+    fs.Size = UDim2.new(0.4, 0, 1, 0)
+    fs.Position = UDim2.fromScale(0.6, 0)
+    fs.Font = Enum.Font.GothamBold
+    fs.TextSize = 12
+    fs.TextColor3 = dw.text
+    fs.TextXAlignment = Enum.TextXAlignment.Right
+    fs.Text = tostring(fp.Value or "")
+    fs.Parent = fq
+    local ft = {}
+    function ft.SetValue(fu) fs.Text = tostring(fu) end
+    function ft.SetStatus(fu)
+        if fu == "Success" then fs.TextColor3 = dw.success
+        elseif fu == "Warning" then fs.TextColor3 = dw.warning
+        elseif fu == "Error" then fs.TextColor3 = dw.error
+        elseif fu == "Info" then fs.TextColor3 = dw.info
+        else fs.TextColor3 = dw.text end
+    end
+    return ft
+end
+
+function dt.AddInput(fo, fp)
+    local fq = fl(fo, 34)
+    local fr = Instance.new("TextLabel")
+    fr.BackgroundTransparency = 1
+    fr.Size = UDim2.new(0.4, 0, 1, 0)
+    fr.Font = Enum.Font.GothamMedium
+    fr.TextSize = 13
+    fr.TextColor3 = dw.text
+    fr.TextXAlignment = Enum.TextXAlignment.Left
+    fr.Text = fp.Title or "Input"
+    fr.Parent = fq
+    local fs = Instance.new("TextBox")
+    fs.BackgroundColor3 = dw.toggleOff
+    fs.BackgroundTransparency = 0.2
+    fs.BorderSizePixel = 0
+    fs.Position = UDim2.fromScale(0.42, 0.5)
+    fs.AnchorPoint = Vector2.new(0, 0.5)
+    fs.Size = UDim2.new(0.58, -10, 0, 26)
+    fs.Font = Enum.Font.Gotham
+    fs.TextSize = 12
+    fs.TextColor3 = dw.text
+    fs.PlaceholderColor3 = dw.textMuted
+    fs.PlaceholderText = fp.Placeholder or ""
+    fs.Text = tostring(fp.Default or "")
+    fs.ClearTextOnFocus = false
+    fs.TextXAlignment = Enum.TextXAlignment.Left
+    fs.Parent = fq
+    ej(fs, 4)
+    local ft = Instance.new("UIPadding")
+    ft.PaddingLeft = UDim.new(0, 8)
+    ft.PaddingRight = UDim.new(0, 8)
+    ft.Parent = fs
+    dt.__state[fp.Id] = fs.Text
+    fs.FocusLost:Connect(function()
+        dt.SetState(fp.Id, fs.Text, true)
+        if fp.Callback then pcall(fp.Callback, fs.Text) end
+    end)
+    return fs
+end
+
+local fo = Instance.new("Frame")
+fo.BackgroundTransparency = 1
+fo.AnchorPoint = Vector2.new(1, 1)
+fo.Position = UDim2.new(1, -16, 1, -16)
+fo.Size = UDim2.fromOffset(280, 400)
+fo.Parent = dy
+local fp = Instance.new("UIListLayout")
+fp.Padding = UDim.new(0, 6)
+fp.SortOrder = Enum.SortOrder.LayoutOrder
+fp.VerticalAlignment = Enum.VerticalAlignment.Bottom
+fp.HorizontalAlignment = Enum.HorizontalAlignment.Right
+fp.Parent = fo
+
+function r.notify(fq, fr, fs, ft)
+    local fu = Instance.new("Frame")
+    fu.BackgroundColor3 = dw.panelBg
+    fu.BackgroundTransparency = 0.05
+    fu.BorderSizePixel = 0
+    fu.Size = UDim2.fromOffset(260, 52)
+    fu.Parent = fo
+    ej(fu, 8)
+    local fv = dw.panelBorderHi
+    if fs == "Success" then fv = dw.success
+    elseif fs == "Warning" then fv = dw.warning
+    elseif fs == "Error" then fv = dw.error
+    elseif fs == "Info" then fv = dw.info end
+    em(fu, fv, 1.5)
+    local fw = Instance.new("TextLabel")
+    fw.BackgroundTransparency = 1
+    fw.Position = UDim2.fromOffset(12, 6)
+    fw.Size = UDim2.new(1, -24, 0, 18)
+    fw.Font = Enum.Font.GothamBold
+    fw.TextSize = 13
+    fw.TextColor3 = fv
+    fw.TextXAlignment = Enum.TextXAlignment.Left
+    fw.Text = tostring(fq or "Apex Hub")
+    fw.Parent = fu
+    local fx = Instance.new("TextLabel")
+    fx.BackgroundTransparency = 1
+    fx.Position = UDim2.fromOffset(12, 24)
+    fx.Size = UDim2.new(1, -24, 0, 22)
+    fx.Font = Enum.Font.Gotham
+    fx.TextSize = 11
+    fx.TextColor3 = dw.textDim
+    fx.TextXAlignment = Enum.TextXAlignment.Left
+    fx.TextWrapped = true
+    fx.TextYAlignment = Enum.TextYAlignment.Top
+    fx.Text = tostring(fr or "")
+    fx.Parent = fu
+    task.delay(tonumber(ft) or 3, function()
+        local fy = TweenInfo.new(0.25)
+        l:Create(fu, fy, { BackgroundTransparency = 1 }):Play()
+        for _, fz in ipairs(fu:GetDescendants()) do
+            if fz:IsA("TextLabel") then l:Create(fz, fy, { TextTransparency = 1 }):Play()
+            elseif fz:IsA("UIStroke") then l:Create(fz, fy, { Transparency = 1 }):Play() end
+        end
+        task.wait(0.3)
+        fu:Destroy()
+    end)
+    return fu
+end
+
+-- ============================================================
+-- BUILD UI
+-- ============================================================
 local fq = {}
 
-    local tabHome = addTab(Window, "Home")
-    if tabHome then
-    local secSession = addSectionSafe(tabHome, "Session")
-    local secAccount = addSectionSafe(tabHome, "Account")
-    local secQuick = addSectionSafe(tabHome, "Quick Actions")
-    local secStart = addSectionSafe(tabHome, "Quick Start")
+do
+    local fr = dt.AddTab({ Id = "home", Title = "Home" })
+    local fs = dt.AddSection(fr, { Title = "Session", Description = "Live status" })
+    local ft = dt.AddSection(fr, { Title = "Account", Description = "Save data" })
+    local fu = dt.AddSection(fr, { Title = "Quick Actions" })
+    local fv = dt.AddSection(fr, { Title = "Quick Start" })
 
-    fq.statusRow = addStatusRow(secSession, "Automation", "Ready")
+    fq.statusRow = dt.AddStatus(fs, { Title = "Automation", Value = "Ready" })
     fq.statusRow:SetStatus("Success")
-    fq.jobRow = addStatusRow(secSession, "Current Job", "Idle")
-    fq.stolenRow = addStatusRow(secSession, "Stolen Eggs", "0")
-    fq.carryingRow = addStatusRow(secSession, "Carrying Egg", "No")
-    fq.runtimeRow = addStatusRow(secSession, "Runtime", "0m")
-    addStatusRow(secSession, "Server", bt)
+    fq.jobRow = dt.AddStatus(fs, { Title = "Current Job", Value = "Idle" })
+    fq.stolenRow = dt.AddStatus(fs, { Title = "Stolen Eggs", Value = "0" })
+    fq.carryingRow = dt.AddStatus(fs, { Title = "Carrying Egg", Value = "No" })
+    fq.runtimeRow = dt.AddStatus(fs, { Title = "Runtime", Value = "0m" })
+    dt.AddStatus(fs, { Title = "Server", Value = bt })
 
-    fq.inventoryProgress = addStatusRow(secAccount, "Egg Inventory", tostring(r.eggInventoryCount()))
-    fq.moneyRow = addStatusRow(secAccount, "Money", "0")
-    fq.speedRow = addStatusRow(secAccount, "Speed Power", "0")
-    fq.rebirthRow = addStatusRow(secAccount, "Rebirths", "0")
-    fq.petsOwnedRow = addStatusRow(secAccount, "Pets Owned", "0")
+    fq.inventoryProgress = dt.AddStatus(ft, { Title = "Egg Inventory", Value = tostring(r.eggInventoryCount()) })
+    fq.moneyRow = dt.AddStatus(ft, { Title = "Money", Value = "0" })
+    fq.speedRow = dt.AddStatus(ft, { Title = "Speed Power", Value = "0" })
+    fq.rebirthRow = dt.AddStatus(ft, { Title = "Rebirths", Value = "0" })
+    fq.petsOwnedRow = dt.AddStatus(ft, { Title = "Pets Owned", Value = "0" })
 
-    addButton(secQuick, { Title = "Return to Base", Callback = function()
+    dt.AddButton(fu, { Title = "Return to Base", Text = "Return", Callback = function()
         task.spawn(function()
             if not r.getBasePosition() or not r.returnToBaseBypass(nil) then
                 r.notify("Return", "Base unavailable", "Warning", 3)
             end
         end)
     end })
-    addButton(secQuick, { Title = "Place Eggs", Callback = function()
+    dt.AddButton(fu, { Title = "Place Eggs", Text = "Place", Callback = function()
         task.spawn(function() r.runAutoPlaceEggs(true) end)
     end })
-    addButton(secQuick, { Title = "Server Hop", Callback = function()
+    dt.AddButton(fu, { Title = "Server Hop", Text = "Hop", Callback = function()
         task.spawn(function() cb = 0; r.serverHop("Manual") end)
     end })
-    addButton(secQuick, { Title = "Fuse Now", Callback = function()
+    dt.AddButton(fu, { Title = "Fuse Now", Text = "Fuse", Callback = function()
         task.spawn(function() r.runAutoFusePets(true) end)
     end })
 
-    addParagraph(secStart, { Title = "Farm flow",
+    dt.AddParagraph(fv, { Title = "Farm flow",
         Content = "Grab1 -> Hold 3s -> Release -> Grab2 -> Return Base. Hold time " .. bp .. "s." })
-    addParagraph(secStart, { Title = "Filters",
+    dt.AddParagraph(fv, { Title = "Filters",
         Content = "Empty multi-select filters mean everything matches." })
 
-    -- FARM
-    end
-    end
+    local fw = dt.AddTab({ Id = "farm", Title = "Farm" })
+    local fx = dt.AddSection(fw, { Title = "Steal Eggs", Description = "Main egg farming" })
+    local fy = dt.AddSection(fw, { Title = "Egg Handling" })
+    local fz = dt.AddSection(fw, { Title = "Server Hop" })
+    local ga = dt.AddSection(fw, { Title = "Task Order" })
 
-    local tabFarm = addTab(Window, "Farmx")
-    if tabFarm then
-    local secSteal = addSectionSafe(tabFarm, "Steal Eggs")
-    local secEgg = addSectionSafe(tabFarm, "Egg Handling")
-    local secHop = addSectionSafe(tabFarm, "Server Hop")
-    local secOrder = addSectionSafe(tabFarm, "Task Order")
-
-    addToggle(secSteal, { Id = "AutoStealSelected", Title = "Auto Steal Selected", Description = "Use filters below", Default = false, Callback = function(fa)
+    dt.AddToggle(fx, { Id = "AutoStealSelected", Title = "Auto Steal Selected", Description = "Use filters below", Default = false, Callback = function(fa)
         if fa == false and not r.stealingEnabled() then r.stealCleanup() end
     end })
-    addToggle(secSteal, { Id = "AutoStealAll", Title = "Auto Steal All", Description = "Ignore rarity/mutation", Default = false, Callback = function(fa)
+    dt.AddToggle(fx, { Id = "AutoStealAll", Title = "Auto Steal All", Description = "Ignore rarity/mutation", Default = false, Callback = function(fa)
         if fa == false and not r.stealingEnabled() then r.stealCleanup() end
     end })
-    addToggle(secSteal, { Id = "StealBigEggs", Title = "Steal Big Eggs", Default = false, Callback = function(fa)
+    dt.AddToggle(fx, { Id = "StealBigEggs", Title = "Steal Big Eggs", Default = false, Callback = function(fa)
         if fa == false and not r.stealingEnabled() then r.stealCleanup() end
     end })
 
-    addSlider(secSteal, { Id = "StealMoveSpeed", Title = "Steal Speed", Min = 16, Max = 2000, Default = bj, Step = 1, Suffix = "studs/s" })
-    addSlider(secSteal, { Id = "BypassReturnSpeed", Title = "Return Speed", Min = 16, Max = 2000, Default = bk, Step = 1, Suffix = "studs/s" })
+    dt.AddSlider(fx, {
+        Id = "StealMoveSpeed",
+        Title = "Steal Speed",
+        Min = 16, Max = 2000,
+        Default = bj,
+        Step = 1,
+        Suffix = " studs/s",
+    })
 
-    addSectionSafe(secSteal, "Target filters")
-    addDropdown(secSteal, { Id = "StealZones", Title = "Areas", Options = bd, Multi = true, Default = {} })
-    addDropdown(secSteal, { Id = "StealRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
-    addDropdown(secSteal, { Id = "StealMutations", Title = "Mutations", Options = av, Multi = true, Default = {} })
-    addDropdown(secSteal, { Id = "StealPriority", Title = "Target Priority", Options = aw, Default = "Rarest" })
-    addSlider(secSteal, { Id = "StealBigEggScale", Title = "Minimum Big Egg Size", Min = 1, Max = 50, Default = 1.5, Step = 0.1, Suffix = "x" })
-    addSectionSafe(secSteal, "Carry behavior")
-    addToggle(secSteal, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
-    addToggle(secSteal, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
+    dt.AddSlider(fx, {
+        Id = "BypassReturnSpeed",
+        Title = "Return Speed",
+        Min = 16, Max = 2000,
+        Default = bk,
+        Step = 1,
+        Suffix = " studs/s",
+    })
 
-    addToggle(secEgg, { Id = "AutoPlaceSelected", Title = "Auto Place Selected", Default = false })
-    addToggle(secEgg, { Id = "AutoPlaceAll", Title = "Auto Place All", Default = false })
-    addToggle(secEgg, { Id = "AutoOpenReadyEggs", Title = "Auto Hatch Ready", Default = false })
-    addDropdown(secEgg, { Id = "LifecycleRarities", Title = "Lifecycle Rarities", Options = at, Multi = true, Default = {} })
-    addDropdown(secEgg, { Id = "LifecycleMutations", Title = "Lifecycle Mutations", Options = av, Multi = true, Default = {} })
+    dt.AddDivider(fx, { Title = "Target filters" })
+    dt.AddDropdown(fx, { Id = "StealZones", Title = "Areas", Options = bd, Multi = true, Default = {} })
+    dt.AddDropdown(fx, { Id = "StealRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(fx, { Id = "StealMutations", Title = "Mutations", Options = av, Multi = true, Default = {} })
+    dt.AddDropdown(fx, { Id = "StealPriority", Title = "Target Priority", Options = aw, Default = "Rarest" })
+    dt.AddSlider(fx, { Id = "StealBigEggScale", Title = "Minimum Big Egg Size", Min = 1, Max = 50, Default = 1.5, Step = 0.1, Suffix = "x" })
+    dt.AddDivider(fx, { Title = "Carry behavior" })
+    dt.AddToggle(fx, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
+    dt.AddToggle(fx, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
 
-    addToggle(secHop, { Id = "AutoServerHop", Title = "Auto Server Hop", Default = false })
-    addDropdown(secHop, { Id = "HopMode", Title = "Hop When", Options = bb, Default = "No Matching Eggs" })
-    addSlider(secHop, { Id = "HopValue", Title = "Wait Before Hop", Min = 1, Max = 200, Default = 15, Step = 1 })
-    addButton(secHop, { Title = "Hop Now", Callback = function()
+    dt.AddToggle(fy, { Id = "AutoPlaceSelected", Title = "Auto Place Selected", Default = false })
+    dt.AddToggle(fy, { Id = "AutoPlaceAll", Title = "Auto Place All", Default = false })
+    dt.AddToggle(fy, { Id = "AutoOpenReadyEggs", Title = "Auto Hatch Ready", Default = false })
+    dt.AddDropdown(fy, { Id = "LifecycleRarities", Title = "Lifecycle Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(fy, { Id = "LifecycleMutations", Title = "Lifecycle Mutations", Options = av, Multi = true, Default = {} })
+    dt.AddDivider(fy, { Title = "Egg selling" })
+    dt.AddToggle(fy, { Id = "AutoSellEggs", Title = "Auto Sell Eggs", Default = false })
+    dt.AddDropdown(fy, { Id = "SellEggRarities", Title = "Sell Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddSlider(fy, { Id = "SellEggInterval", Title = "Sell Interval", Min = 1, Max = 120, Default = 8, Step = 1, Suffix = " s" })
+
+    dt.AddToggle(fz, { Id = "AutoServerHop", Title = "Auto Server Hop", Default = false })
+    dt.AddDropdown(fz, { Id = "HopMode", Title = "Hop When", Options = bb, Default = "No Matching Eggs" })
+    dt.AddSlider(fz, { Id = "HopValue", Title = "Wait Before Hop", Min = 1, Max = 200, Default = 15, Step = 1 })
+    dt.AddButton(fz, { Title = "Hop Now", Text = "Hop", Callback = function()
         task.spawn(function() cb = 0; r.serverHop("Manual") end)
     end })
 
-    addParagraph(secOrder, { Title = "Task Order", Content = "Runs the first ready task in this order." })
+    dt.AddParagraph(ga, { Content = "Runs the first ready task in this order." })
     for gb, gc in ipairs(ba) do
-        addDropdown(secOrder, { Id = gc, Title = "Priority " .. gb, Options = az, Default = az[gb] })
+        dt.AddDropdown(ga, { Id = gc, Title = "Priority " .. gb, Options = az, Default = az[gb] })
     end
 
-    -- PETS
-    end
+    local gb = dt.AddTab({ Id = "pets", Title = "Pets" })
+    local gc = dt.AddSection(gb, { Title = "Pets" })
+    local gd = dt.AddSection(gb, { Title = "Auto Fuse" })
+    local ge = dt.AddSection(gb, { Title = "Auto Sell Pets" })
 
-    local tabProg = addTab(Window, "Progress")
-    if tabProg then
-    local secUp = addSectionSafe(tabProg, "Upgrades")
-    local secRew = addSectionSafe(tabProg, "Rewards")
-    local secEqp = addSectionSafe(tabProg, "Equipment")
-    local secTrn = addSectionSafe(tabProg, "Training")
+    dt.AddToggle(gc, { Id = "AutoEquipBest", Title = "Auto Equip Best Pets", Default = false })
+    dt.AddToggle(gc, { Id = "AutoDeleteOwnPets", Title = "Hide Own Pet Renders", Default = false })
+    dt.AddToggle(gd, { Id = "AutoFusePets", Title = "Auto Fuse Pets", Default = false })
+    dt.AddDropdown(gd, { Id = "FuseRarities", Title = "Fuse Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(gd, { Id = "FuseMutations", Title = "Fuse Mutations", Options = av, Multi = true, Default = {} })
+    dt.AddDropdown(gd, { Id = "FuseTarget", Title = "Pick Group By", Options = ax, Default = "Highest Rarity" })
+    dt.AddToggle(gd, { Id = "FuseKeepMutated", Title = "Never Fuse Mutated", Default = true })
+    dt.AddToggle(gd, { Id = "FuseKeepEquipped", Title = "Never Fuse Equipped", Default = true })
+    dt.AddToggle(gd, { Id = "FuseAutoReveal", Title = "Auto Complete Reveal", Default = true })
+    dt.AddSlider(gd, { Id = "FuseMaxScale", Title = "Maximum Scale to Fuse", Min = 0, Max = 10, Default = 10, Step = 0.1 })
+    dt.AddSlider(gd, { Id = "FuseKeepPerCategory", Title = "Keep Per Pet Type", Min = 0, Max = 20, Default = 0, Step = 1 })
+    dt.AddSlider(gd, { Id = "FuseInterval", Title = "Fuse Interval", Min = 1, Max = 120, Default = 8, Step = 1, Suffix = " s" })
+    dt.AddButton(gd, { Title = "Fuse Now", Text = "Fuse", Callback = function() task.spawn(function() r.runAutoFusePets(true) end) end })
 
-    addToggle(secUp, { Id = "AutoUpgrades", Title = "Auto Buy Upgrades", Default = false })
-    addDropdown(secUp, { Id = "UpgradeTypes", Title = "Upgrade Types", Options = ay, Multi = true, Default = { "Base", "Treadmill" } })
-    addToggle(secRew, { Id = "AutoClaimIndex", Title = "Auto Claim Index", Default = false })
-    addToggle(secRew, { Id = "AutoClaimGroupReward", Title = "Auto Claim Group Reward", Default = false })
-    addToggle(secRew, { Id = "AutoClaimOffline", Title = "Claim Offline Earnings", Default = false })
-    addToggle(secEqp, { Id = "AutoBuyTrail", Title = "Auto Buy Trail", Default = false })
-    addDropdown(secEqp, { Id = "TrailWanted", Title = "Trails", Options = be, Multi = true, Default = {} })
-    addToggle(secEqp, { Id = "AutoEquipBestTrail", Title = "Auto Equip Best Trail", Default = false })
-    addToggle(secEqp, { Id = "AutoEquipBestGear", Title = "Auto Equip Best Gear", Default = false })
-    addToggle(secTrn, { Id = "AutoTreadmill", Title = "Auto Treadmill Training", Default = false })
+    dt.AddToggle(ge, { Id = "AutoSellPets", Title = "Auto Sell Pets", Default = false })
+    dt.AddDropdown(ge, { Id = "SellRarities", Title = "Sell Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(ge, { Id = "SellMutations", Title = "Sell Mutations", Options = av, Multi = true, Default = {} })
+    dt.AddToggle(ge, { Id = "SellKeepMutated", Title = "Never Sell Mutated", Default = true })
+    dt.AddToggle(ge, { Id = "SellKeepEquipped", Title = "Never Sell Equipped", Default = true })
+    dt.AddSlider(ge, { Id = "SellMaxScale", Title = "Maximum Scale to Sell", Min = 0, Max = 10, Default = 10, Step = 0.1 })
+    dt.AddSlider(ge, { Id = "SellInterval", Title = "Sell Interval", Min = 1, Max = 120, Default = 6, Step = 1, Suffix = " s" })
 
-    -- PLAYER
-    end
+    local gf = dt.AddTab({ Id = "progress", Title = "Progress" })
+    local gg = dt.AddSection(gf, { Title = "Upgrades" })
+    local gh = dt.AddSection(gf, { Title = "Rewards" })
+    local gi = dt.AddSection(gf, { Title = "Equipment" })
+    local gj = dt.AddSection(gf, { Title = "Training" })
+    dt.AddToggle(gg, { Id = "AutoUpgrades", Title = "Auto Buy Upgrades", Default = false })
+    dt.AddDropdown(gg, { Id = "UpgradeTypes", Title = "Upgrade Types", Options = ay, Multi = true, Default = { "Base", "Treadmill" } })
+    dt.AddToggle(gh, { Id = "AutoClaimIndex", Title = "Auto Claim Index", Default = false })
+    dt.AddToggle(gh, { Id = "AutoClaimGroupReward", Title = "Auto Claim Group Reward", Default = false })
+    dt.AddToggle(gh, { Id = "AutoClaimOffline", Title = "Claim Offline Earnings", Default = false })
+    dt.AddToggle(gi, { Id = "AutoBuyTrail", Title = "Auto Buy Trail", Default = false })
+    dt.AddDropdown(gi, { Id = "TrailWanted", Title = "Trails", Options = be, Multi = true, Default = {} })
+    dt.AddToggle(gi, { Id = "AutoEquipBestTrail", Title = "Auto Equip Best Trail", Default = false })
+    dt.AddToggle(gi, { Id = "AutoEquipBestGear", Title = "Auto Equip Best Gear", Default = false })
+    dt.AddToggle(gj, { Id = "AutoTreadmill", Title = "Auto Treadmill Training", Default = false })
 
-local function LinoriaLibUnloadSafe()
-    pcall(function() if Library then Library:Unload() end end)
+    local gk = dt.AddTab({ Id = "player", Title = "Player" })
+    local gl = dt.AddSection(gk, { Title = "ESP" })
+    local gm = dt.AddSection(gk, { Title = "Movement" })
+    local gn = dt.AddSection(gk, { Title = "Teleports" })
+    dt.AddToggle(gl, { Id = "EspWorldEggs", Title = "World Egg ESP", Default = false })
+    dt.AddToggle(gl, { Id = "EspCarriedEggs", Title = "Carried and Dropped Egg ESP", Default = false })
+    dt.AddToggle(gl, { Id = "EspGuards", Title = "Guard ESP", Default = false })
+    dt.AddToggle(gl, { Id = "EspPets", Title = "Pet ESP", Default = false })
+    dt.AddToggle(gl, { Id = "EspPlayers", Title = "Player ESP", Default = false })
+    dt.AddToggle(gl, { Id = "EspMachines", Title = "Machine ESP", Default = false })
+    dt.AddToggle(gl, { Id = "EspPlots", Title = "Plot ESP", Default = false })
+    dt.AddSlider(gl, { Id = "EspDistance", Title = "Render Distance", Min = 100, Max = 6000, Default = 2000, Step = 50, Suffix = " studs" })
+    dt.AddToggle(gm, { Id = "WalkSpeedEnabled", Title = "Walk Speed Override", Default = false })
+    dt.AddSlider(gm, { Id = "WalkSpeed", Title = "Walk Speed", Min = 16, Max = 500, Default = 32, Step = 1 })
+    dt.AddToggle(gm, { Id = "JumpPowerEnabled", Title = "Jump Power Override", Default = false })
+    dt.AddSlider(gm, { Id = "JumpPower", Title = "Jump Power", Min = 10, Max = 500, Default = 50, Step = 1 })
+    dt.AddToggle(gm, { Id = "InfJump", Title = "Infinite Jump", Default = false })
+    dt.AddToggle(gm, { Id = "NoClip", Title = "NoClip", Default = false })
+    dt.AddDivider(gm, { Title = "Fly" })
+    dt.AddToggle(gm, { Id = "Fly", Title = "Fly", Default = false, Callback = function(go)
+        if not go then
+            local gp = r.getHumanoid(); if gp then gp.PlatformStand = false end
+            local gq = r.getRoot()
+            local gr = gq and gq:FindFirstChild("ApexFlyLV")
+            if gr then gr:Destroy() end
+        end
+    end })
+    dt.AddSlider(gm, { Id = "FlySpeed", Title = "Fly Speed", Min = 10, Max = 400, Default = 60, Step = 1 })
+    dt.AddDropdown(gn, { Id = "WaypointTarget", Title = "Waypoint", Options = dq, Default = "Base" })
+    dt.AddButton(gn, { Title = "Teleport to Waypoint", Text = "Go", Callback = function()
+        task.spawn(function()
+            local go = r.resolveWaypoint(r.optionValue("WaypointTarget", "Base"))
+            if not go then r.notify("Waypoint", "Unavailable", "Warning", 3); return end
+            if not r.bypassMoveTo(go, nil, r.bypassSpeed()) then r.notify("Waypoint", "Failed", "Error", 3) end
+        end)
+    end })
+
+    local go = dt.AddTab({ Id = "system", Title = "System" })
+    local gp = dt.AddSection(go, { Title = "Session" })
+    local gq = dt.AddSection(go, { Title = "Performance" })
+    local gr = dt.AddSection(go, { Title = "Webhooks" })
+    local gs = dt.AddSection(go, { Title = "About" })
+    dt.AddToggle(gp, { Id = "AntiAfk", Title = "Anti-AFK", Default = true })
+    dt.AddToggle(gp, { Id = "AntiGameplayPause", Title = "No Gameplay Paused", Default = true,
+        Callback = function(gt) r.applyAntiGameplayPause(gt) end })
+    dt.AddToggle(gp, { Id = "AutoReconnect", Title = "Auto Reconnect", Default = false })
+    dt.AddButton(gp, { Title = "Rejoin Server", Text = "Rejoin", Callback = function() r.rejoinServer() end })
+    dt.AddButton(gp, { Title = "Copy Join Script", Text = "Copy", Callback = function()
+        pcall(function() setclipboard(string.format(
+            'game:GetService("TeleportService"):TeleportToPlaceInstance(%d, "%s", game:GetService("Players").LocalPlayer)',
+            game.PlaceId, bs)) end)
+        r.notify("Copied", "Join script copied", "Success", 3)
+    end })
+    dt.AddToggle(gq, { Id = "FpsBoost", Title = "FPS Boost", Default = false,
+        Callback = function(gt) if gt then r.enableFpsBoost() else r.disableFpsBoost() end end })
+    dt.AddToggle(gq, { Id = "DisableRendering", Title = "Disable 3D Rendering", Default = false,
+        Callback = function(gt) r.applyRendering(gt) end })
+    dt.AddSlider(gq, { Id = "FpsCap", Title = "FPS Cap", Min = 15, Max = 360, Default = 60, Step = 1, Suffix = " fps",
+        Callback = function(gt) r.applyFpsCap(gt) end })
+    dt.AddToggle(gr, { Id = "WebhookEnabled", Title = "Enable Webhooks", Default = false })
+    dt.AddInput(gr, { Id = "WebhookUrl", Title = "Webhook URL", Placeholder = "https://discord.com/api/webhooks/...", Default = "" })
+    dt.AddInput(gr, { Id = "WebhookPingId", Title = "Ping User ID", Placeholder = "123456789012345678", Default = "" })
+    dt.AddSlider(gr, { Id = "WebhookInterval", Title = "Summary Interval", Min = 1, Max = 180, Default = 15, Step = 1, Suffix = " min" })
+    dt.AddToggle(gr, { Id = "WebhookEggSpawns", Title = "List Spawned Eggs", Default = true })
+    dt.AddDropdown(gr, { Id = "WebhookRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddToggle(gr, { Id = "WebhookDisconnectAlerts", Title = "Disconnect Alerts", Default = false })
+    dt.AddButton(gr, { Title = "Send Summary Now", Text = "Send", Callback = function()
+        task.spawn(function()
+            local gt = r.sendSummary()
+            r.notify("Webhook", gt and "Sent" or "Failed", gt and "Success" or "Error", 3)
+        end)
+    end })
+    dt.AddParagraph(gs, { Title = "Script Dev", Content = "Apex" })
+    dt.AddParagraph(gs, { Title = "UI", Content = "Standalone custom UI" })
+    dt.AddParagraph(gs, { Title = "Discord", Content = n })
+    dt.AddButton(gs, { Title = "Copy Discord Link", Text = "Copy", Callback = function()
+        pcall(function() setclipboard(n) end)
+        r.notify("Copied", "Discord link copied", "Success", 3)
+    end })
+    dt.AddDivider(gs, { Title = "Danger Zone" })
+    dt.AddButton(gs, { Title = "Unload Script", Text = "Unload", Callback = function() r.unload() end })
 end
 
+-- ============================================================
+-- DASHBOARD REFRESH
+-- ============================================================
 local function fr()
     if not s then return end
     pcall(function()
@@ -2692,12 +3509,16 @@ function r.unload()
     pcall(function() r.applyRendering(false) end)
     pcall(r.disableFpsBoost)
     pcall(r.clearAllEsp)
+    if dh then pcall(function() dh:Destroy() end) end
     for _, fs in ipairs(br) do
         pcall(function() if typeof(fs) == "RBXScriptConnection" then fs:Disconnect() end end)
     end
     r.clearTable(br)
-    pcall(function() if Fluent then LinoriaLibUnloadSafe() end end)
-        pcall(function() if getgenv then getgenv().Library = nil end end)
+    for _, fs in ipairs(dt.__connections) do
+        pcall(function() if typeof(fs) == "RBXScriptConnection" then fs:Disconnect() end end)
+    end
+    pcall(function() dy:Destroy() end)
+    pcall(function() dz:Destroy() end)
     a.__APEX_HUB_RUNNING = nil
     a.__APEX_HUB_SHUTDOWN = nil
 end
@@ -2945,5 +3766,3 @@ r.applyFpsCap(r.optionValue("FpsCap", 60))
 
 r.notify("NiCH HUB", "Ready - press the floating icon", "Success", 5)
 if fq.statusRow then fq.statusRow:SetStatus("Success") end
-
-
