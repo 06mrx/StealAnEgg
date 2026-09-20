@@ -2493,7 +2493,7 @@ if Window then
         Content = "Empty multi-select filters mean everything matches." })
 
     -- FARM
-    local tabFarm = Window:AddTab({ Title = "Farm" })
+    local tabFarm = Window:AddTab({ Title = "Farmx" })
     local secSteal = tabFarm:AddSection("Steal Eggs")
     local secEgg = tabFarm:AddSection("Egg Handling")
     local secHop = tabFarm:AddSection("Server Hop")
