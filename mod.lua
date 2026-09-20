@@ -1082,8 +1082,8 @@ function r.stealEgg(dq)
 
     if not bu then return false end
 
-    -- 3) Hold (Hold 3s = 3s / Hold Fast 1s = 1s)
-    do
+    -- 3) Hold còn lại — bỏ qua ngay bắt đầu khi egg đã claim (bu = true)
+    if not bu then
         local du = r.getRoot()
         if du then
             pcall(function() du.Anchored = true end)
@@ -1091,13 +1091,13 @@ function r.stealEgg(dq)
             -- du.AssemblyAngularVelocity = Vector3.zero
             -- c.Heartbeat:Wait()
         end
+        r.holdAtPosition(r.stealHoldTime(), function() return (not bu) and r.stealingEnabled() end)
     end
-    r.holdAtPosition(r.stealHoldTime(), r.stealingEnabled)
 
     -- 4) Hết hold -> không còn đứng chặt (Anchored đã nhả trong holdAtPosition)
     if not s or not r.stealingEnabled() then return false end
 
-    -- Nhặt lần 2
+    -- Nhặt lần 2 (skip nếu đã claim -> lập tức back)
     if not bu then r.tryCarryEgg(dq); task.wait(0.1) end
     local du = os.clock() + 1.5
     while s and r.stealingEnabled() and not bu and os.clock() < du do
