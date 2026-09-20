@@ -2201,7 +2201,21 @@ function r.getState(fi, fj)
     if fk ~= nil then return fk end
     return fj
 end
-function r.isOn(fi) return dt.GetState(fi) == true end
+function r.isOn(fi)
+    if fi == "AutoStealSelected" then
+        local fk = dt.GetState("StealMode")
+        return dt.GetState("StealEggsEnabled") == true
+            and (fk == "Filtered Eggs" or fk == "Filtered + Oversized")
+    elseif fi == "AutoStealAll" then
+        return dt.GetState("StealEggsEnabled") == true and dt.GetState("StealMode") == "All Eggs"
+    elseif fi == "StealBigEggs" then
+        local fk = dt.GetState("StealMode")
+        return dt.GetState("StealEggsEnabled") == true
+            and (fk == "Oversized Eggs" or fk == "Filtered + Oversized")
+    end
+    local fk = dt.GetState(fi)
+    return fk == true
+end
 function r.optionValue(fi, fj)
     local fk = dt.GetState(fi)
     if fk == nil then return fj end
@@ -2523,30 +2537,21 @@ do
 
     local secTips = dt.AddSection(homeTab, { Title = "Quick Start" })
     dt.AddParagraph(secTips, { Title = "Farm flow",
-        Content = "Grab1 -> Hold " .. bp .. "s -> Release -> Grab2 -> Return Base. Auto task order runs the first ready job." })
-    dt.AddParagraph(secTips, { Title = "Target filters",
-        Content = "Empty multi-select filters mean everything matches." })
+        Content = "Farm tab -> set 'What to Steal' -> turn on 'Auto Steal'. It runs on its own." })
+    dt.AddParagraph(secTips, { Title = "What to Steal",
+        Content = "All Eggs = everything. Filtered Eggs = only matching rarities/mutations you pick. Oversized = big eggs only. Filtered + Oversized = both." })
     dt.AddParagraph(secTips, { Title = "Config",
         Content = "Settings auto-save and auto-load. Manage them in the Settings tab." })
 
     -- ============ FARM ============
     local farmTab = dt.AddTab({ Id = "farm", Title = "Farm" })
 
-    local secOrder = dt.AddSection(farmTab, { Title = "Task Order", Description = "Runs the first ready task in this order" })
-    for idx, taskName in ipairs(ba) do
-        dt.AddDropdown(secOrder, { Id = taskName, Title = "Slot " .. idx, Options = az, Default = az[idx] })
-    end
-
     local secSteal = dt.AddSection(farmTab, { Title = "Steal Eggs", Description = "Main egg farming" })
-    dt.AddToggle(secSteal, { Id = "AutoStealSelected", Title = "Auto Steal Selected", Description = "Respect target filters below", Default = false, Callback = function(bg)
-        if bg == false and not r.stealingEnabled() then r.stealCleanup() end
+    dt.AddToggle(secSteal, { Id = "StealEggsEnabled", Title = "Auto Steal", Description = "Master switch for stealing", Default = false, Callback = function(bi)
+        if not bi then r.stealCleanup() end
     end })
-    dt.AddToggle(secSteal, { Id = "AutoStealAll", Title = "Auto Steal All", Description = "Ignore rarity and mutation filters", Default = false, Callback = function(bg)
-        if bg == false and not r.stealingEnabled() then r.stealCleanup() end
-    end })
-    dt.AddToggle(secSteal, { Id = "StealBigEggs", Title = "Steal Big Eggs", Description = "Only oversized eggs", Default = false, Callback = function(bg)
-        if bg == false and not r.stealingEnabled() then r.stealCleanup() end
-    end })
+    dt.AddDropdown(secSteal, { Id = "StealMode", Title = "What to Steal", Description = "Pick ONE target type",
+        Options = { "All Eggs", "Filtered Eggs", "Oversized Eggs", "Filtered + Oversized" }, Default = "Filtered Eggs" })
     dt.AddSlider(secSteal, { Id = "StealMoveSpeed", Title = "Steal Speed", Min = 16, Max = 2000, Default = bj, Step = 1, Suffix = " studs/s" })
     dt.AddSlider(secSteal, { Id = "BypassReturnSpeed", Title = "Return Speed", Min = 16, Max = 2000, Default = bk, Step = 1, Suffix = " studs/s" })
 
@@ -2575,6 +2580,11 @@ do
     dt.AddButton(secHop, { Title = "Hop Now", Text = "Hop", Callback = function()
         task.spawn(function() cb = 0; r.serverHop("Manual") end)
     end })
+
+    local secOrder = dt.AddSection(farmTab, { Title = "Task Order", Description = "Runs the first ready task in this order" })
+    for idx, taskName in ipairs(ba) do
+        dt.AddDropdown(secOrder, { Id = taskName, Title = "Slot " .. idx, Options = az, Default = az[idx] })
+    end
 
     -- ============ SELL ============
     local sellTab = dt.AddTab({ Id = "sell", Title = "Sell" })
@@ -2687,12 +2697,12 @@ do
         Callback = function(ch) r.applyAntiGameplayPause(ch) end })
     dt.AddToggle(secSessionProtect, { Id = "AutoReconnect", Title = "Auto Reconnect", Default = false })
     dt.AddButton(secSessionProtect, { Title = "Rejoin Server", Text = "Rejoin", Callback = function() r.rejoinServer() end })
-    dt.AddButton(secSessionProtect, { Title = "Copy Join Script", Text = "Copy", Callback = function()
-        pcall(function() setclipboard(string.format(
-            'game:GetService("TeleportService"):TeleportToPlaceInstance(%d, "%s", game:GetService("Players").LocalPlayer)',
-            game.PlaceId, bs)) end)
-        r.notify("Copied", "Join script copied", "Success", 3)
-    end })
+    -- dt.AddButton(secSessionProtect, { Title = "Copy Join Script", Text = "Copy", Callback = function()
+    --     pcall(function() setclipboard(string.format(
+    --         'game:GetService("TeleportService"):TeleportToPlaceInstance(%d, "%s", game:GetService("Players").LocalPlayer)',
+    --         game.PlaceId, bs)) end)
+    --     r.notify("Copied", "Join script copied", "Success", 3)
+    -- end })
 
     local secPerf = dt.AddSection(settingsTab, { Title = "Performance" })
     dt.AddToggle(secPerf, { Id = "FpsBoost", Title = "FPS Boost", Default = false,
