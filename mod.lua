@@ -2202,7 +2202,7 @@ eg.BorderSizePixel = 0
 eg.ClipsDescendants = true
 eg.Active = true
 eg.Draggable = false
-eg.Visible = false
+eg.Visible = true
 eg.Parent = dy
 
 local eh = Instance.new("UICorner")
@@ -2370,7 +2370,7 @@ local function ff(fg, fh)
             end)
         end
     end))
-    du(f.InputChanged:Connect(function(fn)
+    du(UserInputService.InputChanged:Connect(function(fn)
         if fk and (fn.UserInputType == Enum.UserInputType.MouseMovement
         or fn.UserInputType == Enum.UserInputType.Touch) then
             local fo = fn.Position - fl
@@ -2397,7 +2397,7 @@ do
             end)
         end
     end))
-    du(f.InputChanged:Connect(function(fm)
+    du(UserInputService.InputChanged:Connect(function(fm)
         if fi and (fm.UserInputType == Enum.UserInputType.MouseMovement
         or fm.UserInputType == Enum.UserInputType.Touch) then
             local fn = fm.Position - fj
@@ -2759,13 +2759,13 @@ function dt.AddSlider(fo, fp)
             gd(gf.Position.X)
         end
     end)
-    du(f.InputChanged:Connect(function(gf)
+    du(UserInputService.InputChanged:Connect(function(gf)
         if gc and (gf.UserInputType == Enum.UserInputType.MouseMovement
         or gf.UserInputType == Enum.UserInputType.Touch) then
             gd(gf.Position.X)
         end
     end))
-    du(f.InputEnded:Connect(function(gf)
+    du(UserInputService.InputEnded:Connect(function(gf)
         if gf.UserInputType == Enum.UserInputType.MouseButton1
         or gf.UserInputType == Enum.UserInputType.Touch then
             gc = false
