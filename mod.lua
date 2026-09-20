@@ -1,4 +1,4 @@
-local GLOBAL_ENV = (getgenv and getgenv()) or _G
+local _G_ENV = (getgenv and getgenv()) or _G
 
 if type(table.pack) ~= "function" then
     function table.pack(...) return { n = select("#", ...), ... } end
@@ -6,296 +6,295 @@ end
 if type(table.unpack) ~= "function" then table.unpack = unpack end
 if type(typeof) ~= "function" then typeof = type end
 if type(math.clamp) ~= "function" then
-    function math.clamp(value, minimum, maximum)
-        if value < minimum then return minimum elseif value > maximum then return maximum end
-        return value
+    function math.clamp(a, b, c)
+        if a < b then return b elseif a > c then return c end
+        return a
     end
 end
 if type(table.find) ~= "function" then
-    function table.find(list, target, startIndex)
-        if type(list) ~= "table" then return nil end
-        for index = tonumber(startIndex) or 1, #list do if list[index] == target then return index end end
+    function table.find(a, b, c)
+        if type(a) ~= "table" then return nil end
+        for d = tonumber(c) or 1, #a do if a[d] == b then return d end end
         return nil
     end
 end
 
-if type(GLOBAL_ENV.__APEX_HUB_SHUTDOWN) == "function" then
-    pcall(GLOBAL_ENV.__APEX_HUB_SHUTDOWN); task.wait(0.1)
+local a = _G_ENV
+if type(a.__APEX_HUB_SHUTDOWN) == "function" then
+    pcall(a.__APEX_HUB_SHUTDOWN); task.wait(0.1)
 end
-if GLOBAL_ENV.__APEX_HUB_RUNNING then return end
-GLOBAL_ENV.__APEX_HUB_RUNNING = true
+if a.__APEX_HUB_RUNNING then return end
+a.__APEX_HUB_RUNNING = true
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
-local Players           = game:GetService("Players")
-local RunService        = game:GetService("RunService")
-local HttpService       = game:GetService("HttpService")
-local TeleportService   = game:GetService("TeleportService")
-local UserInputService  = game:GetService("UserInputService")
-local Lighting          = game:GetService("Lighting")
-local Workspace         = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local GuiService        = game:GetService("GuiService")
-local CoreGui           = game:GetService("CoreGui")
-local TweenService      = game:GetService("TweenService")
+local b            = game:GetService("Players")
+local c         = game:GetService("RunService")
+local d        = game:GetService("HttpService")
+local e    = game:GetService("TeleportService")
+local f   = game:GetService("UserInputService")
+local g           = game:GetService("Lighting")
+local h          = game:GetService("Workspace")
+local i  = game:GetService("ReplicatedStorage")
+local j         = game:GetService("GuiService")
+local k            = game:GetService("CoreGui")
+local l       = game:GetService("TweenService")
 
-local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
-pcall(function() LocalPlayer:WaitForChild("PlayerGui", 10) end)
+local m = b.LocalPlayer or b.PlayerAdded:Wait()
+pcall(function() m:WaitForChild("PlayerGui", 10) end)
 
-local DISCORD_LINK     = "https://discord.gg/kptjwzKWgX"
-local TOGGLE_IMAGE     = "rbxassetid://131679774975668"
-local HUB_NAME         = "Apex Hub"
-local DISCORD_SUBTITLE = "Discord: " .. DISCORD_LINK
+local n = "https://discord.gg/kptjwzKWgX"
+local o  = "rbxassetid://131679774975668"
+local p  = "Apex Hub"
+local q     = "Discord: " .. n
 
 -- ============================================================
 -- GAME MODULES
 -- ============================================================
-local Hub = {}
+local r = {}
 
-function Hub.cloneList(source)
-    local result = {}
-    if type(source) ~= "table" then return result end
-    for index = 1, #source do result[index] = source[index] end
-    return result
+function r.cloneList(s)
+    local t = {}
+    if type(s) ~= "table" then return t end
+    for u = 1, #s do t[u] = s[u] end
+    return t
 end
-function Hub.clearTable(target)
-    if type(target) ~= "table" then return end
-    for key in pairs(target) do target[key] = nil end
+function r.clearTable(s)
+    if type(s) ~= "table" then return end
+    for t in pairs(s) do s[t] = nil end
 end
 
-local isRunning = true
+local s = true
 
-function Hub.waitFor(timeout, interval, condition)
-    local deadline = os.clock() + (tonumber(timeout) or 1)
-    local step = tonumber(interval) or 0.05
-    local success = false
+function r.waitFor(t, u, v)
+    local w = os.clock() + (tonumber(t) or 1)
+    local x = tonumber(u) or 0.05
+    local y = false
     repeat
-        if condition and condition() == true then success = true
-        elseif isRunning and os.clock() < deadline then task.wait(step) end
-    until success or (not isRunning) or os.clock() >= deadline
-    return success
+        if v and v() == true then y = true
+        elseif s and os.clock() < w then task.wait(x) end
+    until y or (not s) or os.clock() >= w
+    return y
 end
 
-function Hub.requirePath(root, timeout, ...)
-    local current = root
-    local pathNames = { ... }
-    for _, name in ipairs(pathNames) do
-        if not current then return nil end
-        local child = current:FindFirstChild(name)
-        if not child then child = current:WaitForChild(name, timeout or 4) end
-        current = child
+function r.requirePath(t, u, ...)
+    local v = t
+    local w = { ... }
+    for _, x in ipairs(w) do
+        if not v then return nil end
+        local y = v:FindFirstChild(x)
+        if not y then y = v:WaitForChild(x, u or 4) end
+        v = y
     end
-    if not current then return nil end
-    local ok, module = pcall(require, current)
-    return ok and module or nil
+    if not v then return nil end
+    local x, y = pcall(require, v)
+    return x and y or nil
 end
-function Hub.findModule(name)
-    for _, descendant in ipairs(ReplicatedStorage:GetDescendants()) do
-        if descendant:IsA("ModuleScript") and descendant.Name == name then
-            local ok, module = pcall(require, descendant)
-            if ok then return module end
+function r.findModule(t)
+    for _, u in ipairs(i:GetDescendants()) do
+        if u:IsA("ModuleScript") and u.Name == t then
+            local v, w = pcall(require, u)
+            if v then return w end
         end
     end
     return nil
 end
-function Hub.findRemote(name)
-    for _, descendant in ipairs(ReplicatedStorage:GetDescendants()) do
-        if (descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction")) and descendant.Name == name then
-            return descendant
-        end
+function r.findRemote(t)
+    for _, u in ipairs(i:GetDescendants()) do
+        if (u:IsA("RemoteEvent") or u:IsA("RemoteFunction")) and u.Name == t then return u end
     end
     return nil
 end
-function Hub.findRemoteContains(...)
-    local keywords = { ... }
-    for _, descendant in ipairs(ReplicatedStorage:GetDescendants()) do
-        if descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction") then
-            local allMatch = true
-            for _, keyword in ipairs(keywords) do
-                if not string.find(descendant.Name, keyword, 1, true) then allMatch = false; break end
+function r.findRemoteContains(...)
+    local t = { ... }
+    for _, u in ipairs(i:GetDescendants()) do
+        if u:IsA("RemoteEvent") or u:IsA("RemoteFunction") then
+            local v = true
+            for _, w in ipairs(t) do
+                if not string.find(u.Name, w, 1, true) then v = false; break end
             end
-            if allMatch then return descendant end
+            if v then return u end
         end
     end
     return nil
 end
-function Hub.pickFromTable(root, ...)
-    if typeof(root) ~= "table" then return nil end
-    local keys = { ... }
-    local current = root
-    for _, key in ipairs(keys) do
-        if typeof(current) ~= "table" then return nil end
-        current = current[key]
+function r.pickFromTable(t, ...)
+    if typeof(t) ~= "table" then return nil end
+    local u = { ... }
+    local v = t
+    for _, w in ipairs(u) do
+        if typeof(v) ~= "table" then return nil end
+        v = v[w]
     end
-    return current
+    return v
 end
-function Hub.pickFn(root, ...)
-    if typeof(root) ~= "table" then return nil end
-    for index = 1, select("#", ...) do
-        local name = select(index, ...)
-        local candidate = root[name]
-        if typeof(candidate) == "function" then return candidate end
+function r.pickFn(t, ...)
+    if typeof(t) ~= "table" then return nil end
+    for u = 1, select("#", ...) do
+        local v = select(u, ...)
+        local w = t[v]
+        if typeof(w) == "function" then return w end
     end
     return nil
 end
-function Hub.remoteFrom(root, ...)
-    local result = Hub.pickFromTable(root, ...)
-    if typeof(result) == "Instance" then return result end
+function r.remoteFrom(t, ...)
+    local u = r.pickFromTable(t, ...)
+    if typeof(u) == "Instance" then return u end
     return nil
 end
 
-local saveModule            = Hub.requirePath(ReplicatedStorage, 6, "Shared", "Save") or Hub.findModule("Save")
-local constantsModule       = Hub.requirePath(ReplicatedStorage, 4, "Shared", "Globals", "Constants") or Hub.findModule("Constants")
-local baseUpgradeModule     = Hub.requirePath(ReplicatedStorage, 4, "Client", "BaseUpgrade") or Hub.findModule("BaseUpgrade")
-local eggsModule            = Hub.requirePath(ReplicatedStorage, 4, "Shared", "Types", "Eggs") or Hub.findModule("Eggs")
-local areasModule           = Hub.requirePath(ReplicatedStorage, 4, "Data", "Areas") or Hub.findModule("Areas")
-local assetsModule          = Hub.requirePath(ReplicatedStorage, 4, "Data", "Assets") or Hub.findModule("Assets")
-local gearsModule           = Hub.requirePath(ReplicatedStorage, 4, "Data", "Gears") or Hub.findModule("Gears")
-local trailsModule          = Hub.requirePath(ReplicatedStorage, 4, "Data", "Trails") or Hub.findModule("Trails")
-local treadmillsModule      = Hub.requirePath(ReplicatedStorage, 4, "Data", "Treadmills") or Hub.findModule("Treadmills")
-local eggStateModule        = Hub.requirePath(ReplicatedStorage, 6, "Client", "EggState") or Hub.findModule("EggState")
-local plotStateModule       = Hub.requirePath(ReplicatedStorage, 6, "Client", "PlotState") or Hub.findModule("PlotState")
-local slotIdentityModule    = Hub.requirePath(ReplicatedStorage, 4, "Shared", "Util", "AreaEggSlotIdentity") or Hub.findModule("AreaEggSlotIdentity")
-local assetRosterModule     = Hub.requirePath(ReplicatedStorage, 4, "Client", "AssetRoster") or Hub.findModule("AssetRoster")
-local assetItemsModule      = Hub.requirePath(ReplicatedStorage, 4, "Shared", "Util", "AssetItems") or Hub.findModule("AssetItems")
-local fuseKernelModule      = Hub.requirePath(ReplicatedStorage, 4, "Shared", "Util", "FuseKernel") or Hub.findModule("FuseKernel")
-local remotesModule         = Hub.requirePath(ReplicatedStorage, 6, "Shared", "Remotes") or Hub.findModule("Remotes")
+local t        = r.requirePath(i, 6, "Shared", "Save") or r.findModule("Save")
+local u         = r.requirePath(i, 4, "Shared", "Globals", "Constants") or r.findModule("Constants")
+local v = r.requirePath(i, 4, "Client", "BaseUpgrade") or r.findModule("BaseUpgrade")
+local w          = r.requirePath(i, 4, "Shared", "Types", "Eggs") or r.findModule("Eggs")
+local x       = r.requirePath(i, 4, "Data", "Areas") or r.findModule("Areas")
+local y        = r.requirePath(i, 4, "Data", "Assets") or r.findModule("Assets")
+local z       = r.requirePath(i, 4, "Data", "Gears") or r.findModule("Gears")
+local aa      = r.requirePath(i, 4, "Data", "Trails") or r.findModule("Trails")
+local ab    = r.requirePath(i, 4, "Data", "Treadmills") or r.findModule("Treadmills")
+local ac    = r.requirePath(i, 6, "Client", "EggState") or r.findModule("EggState")
+local ad   = r.requirePath(i, 6, "Client", "PlotState") or r.findModule("PlotState")
+local ae= r.requirePath(i, 4, "Shared", "Util", "AreaEggSlotIdentity") or r.findModule("AreaEggSlotIdentity")
+local af = r.requirePath(i, 4, "Client", "AssetRoster") or r.findModule("AssetRoster")
+local ag  = r.requirePath(i, 4, "Shared", "Util", "AssetItems") or r.findModule("AssetItems")
+local ah  = r.requirePath(i, 4, "Shared", "Util", "FuseKernel") or r.findModule("FuseKernel")
+local ai     = r.requirePath(i, 6, "Shared", "Remotes") or r.findModule("Remotes")
 
-local eggApi = {
-    GetAreaEggSnapshot = Hub.pickFn(eggStateModule, "ReadFieldEggs", "GetAreaEggSnapshot"),
-    RequestAreaEggSnapshot = Hub.pickFn(eggStateModule, "SyncFieldEggs", "RequestAreaEggSnapshot"),
-    AreaEggCarryStateChanged = eggStateModule and (eggStateModule.CarryChanged or eggStateModule.AreaEggCarryStateChanged),
-    RequestCarryAreaEgg = Hub.pickFn(eggStateModule, "CarryFieldEgg", "RequestCarryAreaEgg"),
-    RequestDropHeldAreaEgg = Hub.pickFn(eggStateModule, "DropFieldEgg", "RequestDropHeldAreaEgg"),
-    IsLocalEggReady = Hub.pickFn(eggStateModule, "IsReadyToHatch", "IsLocalEggReady"),
-    RequestHatchEgg = Hub.pickFn(eggStateModule, "BeginHatch", "RequestHatchEgg"),
-    RequestCompleteHatchEgg = Hub.pickFn(eggStateModule, "FinishHatch", "RequestCompleteHatchEgg"),
-    RequestEquipTool = Hub.pickFn(eggStateModule, "WearEggTool", "RequestEquipTool"),
-    RequestPlaceEgg = Hub.pickFn(eggStateModule, "PlantEgg", "RequestPlaceEgg"),
+local aj = {
+    GetAreaEggSnapshot = r.pickFn(ac, "ReadFieldEggs", "GetAreaEggSnapshot"),
+    RequestAreaEggSnapshot = r.pickFn(ac, "SyncFieldEggs", "RequestAreaEggSnapshot"),
+    AreaEggCarryStateChanged = ac and (ac.CarryChanged or ac.AreaEggCarryStateChanged),
+    RequestCarryAreaEgg = r.pickFn(ac, "CarryFieldEgg", "RequestCarryAreaEgg"),
+    RequestDropHeldAreaEgg = r.pickFn(ac, "DropFieldEgg", "RequestDropHeldAreaEgg"),
+    IsLocalEggReady = r.pickFn(ac, "IsReadyToHatch", "IsLocalEggReady"),
+    RequestHatchEgg = r.pickFn(ac, "BeginHatch", "RequestHatchEgg"),
+    RequestCompleteHatchEgg = r.pickFn(ac, "FinishHatch", "RequestCompleteHatchEgg"),
+    RequestEquipTool = r.pickFn(ac, "WearEggTool", "RequestEquipTool"),
+    RequestPlaceEgg = r.pickFn(ac, "PlantEgg", "RequestPlaceEgg"),
 }
-local plotApi = {
-    GetRespawnPointCFrame = Hub.pickFn(plotStateModule, "FindRespawnCFrame", "GetRespawnPointCFrame"),
-    GetPlotData = Hub.pickFn(plotStateModule, "ResolvePlot", "GetPlotData"),
-    IsWorldPositionWithinLocalPlotBounds = Hub.pickFn(plotStateModule, "ContainsLocalPoint", "IsWorldPositionWithinLocalPlotBounds"),
-    GetSlotOwner = Hub.pickFn(plotStateModule, "LookupOwner", "GetSlotOwner"),
+local ak = {
+    GetRespawnPointCFrame = r.pickFn(ad, "FindRespawnCFrame", "GetRespawnPointCFrame"),
+    GetPlotData = r.pickFn(ad, "ResolvePlot", "GetPlotData"),
+    IsWorldPositionWithinLocalPlotBounds = r.pickFn(ad, "ContainsLocalPoint", "IsWorldPositionWithinLocalPlotBounds"),
+    GetSlotOwner = r.pickFn(ad, "LookupOwner", "GetSlotOwner"),
 }
-local slotApi = {
-    IsFirstAreaUid = Hub.pickFn(slotIdentityModule, "LooksLikeFirstAreaUid", "IsFirstAreaUid"),
-    BuildSlotKey = Hub.pickFn(slotIdentityModule, "SlotKey", "BuildSlotKey"),
+local al = {
+    IsFirstAreaUid = r.pickFn(ae, "LooksLikeFirstAreaUid", "IsFirstAreaUid"),
+    BuildSlotKey = r.pickFn(ae, "SlotKey", "BuildSlotKey"),
 }
-local rosterApi = { GetRuntimeSnapshot = Hub.pickFn(assetRosterModule, "ReadSnapshot", "GetRuntimeSnapshot") }
-local assetItemsApi = { Deserialize = Hub.pickFn(assetItemsModule, "Decode", "Deserialize") }
-local fuseApi = {
-    CanSelectPet = Hub.pickFn(fuseKernelModule, "MayEnterFuse", "CanSelectPet"),
-    CalculateFusePrice = Hub.pickFn(fuseKernelModule, "PriceFor", "CalculateFusePrice"),
+local am = { GetRuntimeSnapshot = r.pickFn(af, "ReadSnapshot", "GetRuntimeSnapshot") }
+local an = { Deserialize = r.pickFn(ag, "Decode", "Deserialize") }
+local ao = {
+    CanSelectPet = r.pickFn(ah, "MayEnterFuse", "CanSelectPet"),
+    CalculateFusePrice = r.pickFn(ah, "PriceFor", "CalculateFusePrice"),
 }
 
-local remotes = {
+local ap = {
     Backpack = {
-        EQUIP_BEST = Hub.remoteFrom(remotesModule, "Haul", "WearBest")
-            or Hub.findRemoteContains("WearBest") or Hub.findRemoteContains("EQUIP_BEST"),
+        EQUIP_BEST = r.remoteFrom(ai, "Haul", "WearBest")
+            or r.findRemoteContains("WearBest") or r.findRemoteContains("EQUIP_BEST"),
     },
     Plots = {
-        REQUEST_BASE_UPGRADE = Hub.remoteFrom(remotesModule, "Homestead", "AskBaseTierRaise")
-            or Hub.findRemoteContains("AskBaseTierRaise") or Hub.findRemoteContains("BaseUpgrade"),
+        REQUEST_BASE_UPGRADE = r.remoteFrom(ai, "Homestead", "AskBaseTierRaise")
+            or r.findRemoteContains("AskBaseTierRaise") or r.findRemoteContains("BaseUpgrade"),
     },
     Treadmills = {
-        REQUEST_UPGRADE = Hub.remoteFrom(remotesModule, "Treadmill", "AskTierRaise") or Hub.findRemoteContains("AskTierRaise"),
-        REQUEST_EQUIP_STATIC = Hub.remoteFrom(remotesModule, "Treadmill", "AskWearStill") or Hub.findRemoteContains("AskWearStill"),
-        REQUEST_UNEQUIP = Hub.remoteFrom(remotesModule, "Treadmill", "AskDoff") or Hub.findRemoteContains("AskDoff"),
+        REQUEST_UPGRADE = r.remoteFrom(ai, "Treadmill", "AskTierRaise") or r.findRemoteContains("AskTierRaise"),
+        REQUEST_EQUIP_STATIC = r.remoteFrom(ai, "Treadmill", "AskWearStill") or r.findRemoteContains("AskWearStill"),
+        REQUEST_UNEQUIP = r.remoteFrom(ai, "Treadmill", "AskDoff") or r.findRemoteContains("AskDoff"),
     },
-    Index = { REQUEST_CLAIM_ALL = Hub.remoteFrom(remotesModule, "Codex", "AskRedeemAll") or Hub.findRemoteContains("AskRedeemAll") },
+    Index = { REQUEST_CLAIM_ALL = r.remoteFrom(ai, "Codex", "AskRedeemAll") or r.findRemoteContains("AskRedeemAll") },
     AssetInventory = {
-        SELL_ASSET = Hub.remoteFrom(remotesModule, "PetSatchel", "SellPet")
-            or Hub.findRemoteContains("SellPet") or Hub.findRemoteContains("SELL_ASSET"),
+        SELL_ASSET = r.remoteFrom(ai, "PetSatchel", "SellPet")
+            or r.findRemoteContains("SellPet") or r.findRemoteContains("SELL_ASSET"),
     },
     OfflineAssets = {
-        GET_SUMMARY = Hub.remoteFrom(remotesModule, "AwayEarnings", "FetchSummary") or Hub.findRemoteContains("FetchSummary"),
-        REQUEST_REDEEM = Hub.remoteFrom(remotesModule, "AwayEarnings", "AskCollect") or Hub.findRemoteContains("AskCollect"),
+        GET_SUMMARY = r.remoteFrom(ai, "AwayEarnings", "FetchSummary") or r.findRemoteContains("FetchSummary"),
+        REQUEST_REDEEM = r.remoteFrom(ai, "AwayEarnings", "AskCollect") or r.findRemoteContains("AskCollect"),
     },
     FuseMachine = {
-        COMPLETE_REVEAL = Hub.remoteFrom(remotesModule, "Fusery", "FinishReveal") or Hub.findRemoteContains("FinishReveal"),
-        ACKNOWLEDGE_INFO = Hub.remoteFrom(remotesModule, "Fusery", "ConfirmBriefing") or Hub.findRemoteContains("ConfirmBriefing"),
-        INSERT_MOB = Hub.remoteFrom(remotesModule, "Fusery", "LoadPet") or Hub.findRemoteContains("LoadPet"),
-        START_FUSE = Hub.remoteFrom(remotesModule, "Fusery", "BeginFuse") or Hub.findRemoteContains("BeginFuse"),
+        COMPLETE_REVEAL = r.remoteFrom(ai, "Fusery", "FinishReveal") or r.findRemoteContains("FinishReveal"),
+        ACKNOWLEDGE_INFO = r.remoteFrom(ai, "Fusery", "ConfirmBriefing") or r.findRemoteContains("ConfirmBriefing"),
+        INSERT_MOB = r.remoteFrom(ai, "Fusery", "LoadPet") or r.findRemoteContains("LoadPet"),
+        START_FUSE = r.remoteFrom(ai, "Fusery", "BeginFuse") or r.findRemoteContains("BeginFuse"),
     },
     Trails = {
-        REQUEST_PURCHASE = Hub.remoteFrom(remotesModule, "Trailwear", "AskPurchase") or Hub.findRemoteContains("AskPurchase"),
-        REQUEST_SELECT = Hub.remoteFrom(remotesModule, "Trailwear", "AskChoose") or Hub.findRemoteContains("AskChoose"),
-        WORN_SNAPSHOT = Hub.remoteFrom(remotesModule, "Trailwear", "AskWornSnapshot") or Hub.findRemoteContains("AskWornSnapshot"),
+        REQUEST_PURCHASE = r.remoteFrom(ai, "Trailwear", "AskPurchase") or r.findRemoteContains("AskPurchase"),
+        REQUEST_SELECT = r.remoteFrom(ai, "Trailwear", "AskChoose") or r.findRemoteContains("AskChoose"),
+        WORN_SNAPSHOT = r.remoteFrom(ai, "Trailwear", "AskWornSnapshot") or r.findRemoteContains("AskWornSnapshot"),
     },
-    GroupReward = { CLAIM_REWARD = Hub.remoteFrom(remotesModule, "GroupPerk", "RedeemPerk") or Hub.findRemoteContains("RedeemPerk") },
+    GroupReward = { CLAIM_REWARD = r.remoteFrom(ai, "GroupPerk", "RedeemPerk") or r.findRemoteContains("RedeemPerk") },
 }
 
-local carryEggRemote   = Hub.findRemote("RF/EggWorld/AskFieldEggCarry") or Hub.findRemoteContains("AskFieldEggCarry")
-local eggSnapshotRemote = Hub.findRemote("RF/EggWorld/AskFieldEggSnapshot") or Hub.findRemoteContains("AskFieldEggSnapshot")
-local placeEggRemote   = Hub.findRemote("RF/EggWorld/AskPlaceEgg") or Hub.findRemoteContains("AskPlaceEgg")
+local aq    = r.findRemote("RF/EggWorld/AskFieldEggCarry") or r.findRemoteContains("AskFieldEggCarry")
+local ar = r.findRemote("RF/EggWorld/AskFieldEggSnapshot") or r.findRemoteContains("AskFieldEggSnapshot")
+local as    = r.findRemote("RF/EggWorld/AskPlaceEgg") or r.findRemoteContains("AskPlaceEgg")
 
-if not eggApi.RequestCarryAreaEgg and carryEggRemote then
-    eggApi.RequestCarryAreaEgg = function(eggUid, slotKey)
-        if carryEggRemote:IsA("RemoteFunction") then return carryEggRemote:InvokeServer(eggUid, slotKey) end
-        carryEggRemote:FireServer(eggUid, slotKey); return true
+if not aj.RequestCarryAreaEgg and aq then
+    aj.RequestCarryAreaEgg = function(at, au)
+        if aq:IsA("RemoteFunction") then return aq:InvokeServer(at, au) end
+        aq:FireServer(at, au); return true
     end
 end
-if not eggApi.RequestAreaEggSnapshot and eggSnapshotRemote then
-    eggApi.RequestAreaEggSnapshot = function()
-        if eggSnapshotRemote:IsA("RemoteFunction") then return eggSnapshotRemote:InvokeServer() end
-        eggSnapshotRemote:FireServer()
+if not aj.RequestAreaEggSnapshot and ar then
+    aj.RequestAreaEggSnapshot = function()
+        if ar:IsA("RemoteFunction") then return ar:InvokeServer() end
+        ar:FireServer()
     end
 end
-if not eggApi.RequestPlaceEgg and placeEggRemote then
-    eggApi.RequestPlaceEgg = function(eggUid, cframe)
-        if placeEggRemote:IsA("RemoteFunction") then return placeEggRemote:InvokeServer(eggUid, cframe) end
-        placeEggRemote:FireServer(eggUid, cframe); return true
+if not aj.RequestPlaceEgg and as then
+    aj.RequestPlaceEgg = function(at, au)
+        if as:IsA("RemoteFunction") then return as:InvokeServer(at, au) end
+        as:FireServer(at, au); return true
     end
 end
 
 -- ============================================================
 -- CONSTANTS
 -- ============================================================
-local RARITY_NAMES = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine" }
-local RARITY_RANK = {
+local at = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Cosmic", "Secret", "Eternal", "Divine" }
+local au = {
     Common=1, Uncommon=2, Rare=3, Epic=4, Legendary=5,
     Mythic=6, Cosmic=7, Secret=8, Eternal=9, Divine=10,
 }
-local MUTATION_NAMES = { "Golden", "Rainbow", "Silver" }
-local STEAL_PRIORITY_OPTIONS = { "Rarest", "Nearest", "Furthest", "Biggest Size" }
-local FUSE_TARGET_OPTIONS = { "Highest Rarity", "Lowest Rarity", "Most Duplicates" }
-local UPGRADE_TYPES = { "Base", "Treadmill" }
-local TASK_NAMES = { "Auto Steal Egg", "Auto Place Egg", "Auto Hatch", "Auto Treadmill" }
-local PRIORITY_SLOTS = { "PrioritySlot1", "PrioritySlot2", "PrioritySlot3", "PrioritySlot4" }
-local HOP_MODE_OPTIONS = { "No Matching Eggs", "Timed Interval", "After Steal Count" }
-local FALLBACK_AREAS = { "Forest", "Lake", "Desert", "Jungle", "Snow", "Volcano", "Abyss Ocean", "Prehistoric", "Cosmic" }
+local av = { "Golden", "Rainbow", "Silver" }
+local aw = { "Rarest", "Nearest", "Furthest", "Biggest Size" }
+local ax = { "Highest Rarity", "Lowest Rarity", "Most Duplicates" }
+local ay = { "Base", "Treadmill" }
+local az = { "Auto Steal Egg", "Auto Place Egg", "Auto Hatch", "Auto Treadmill" }
+local ba = { "PrioritySlot1", "PrioritySlot2", "PrioritySlot3", "PrioritySlot4" }
+local bb = { "No Matching Eggs", "Timed Interval", "After Steal Count" }
+local bc = { "Forest", "Lake", "Desert", "Jungle", "Snow", "Volcano", "Abyss Ocean", "Prehistoric", "Cosmic" }
 
-local areaList = {}
-if areasModule and typeof(areasModule.Directory) == "table" then
-    for areaName in pairs(areasModule.Directory) do table.insert(areaList, areaName) end
-    table.sort(areaList)
+local bd = {}
+if x and typeof(x.Directory) == "table" then
+    for be in pairs(x.Directory) do table.insert(bd, be) end
+    table.sort(bd)
 else
-    areaList = Hub.cloneList(FALLBACK_AREAS)
+    bd = r.cloneList(bc)
 end
 
-local trailNames, trailIdByName, trailPriceByName = {}, {}, {}
-if trailsModule and typeof(trailsModule.Directory) == "table" then
-    local trailEntries = {}
-    for id, data in pairs(trailsModule.Directory) do
-        table.insert(trailEntries, { id = id, name = data.DisplayName, price = tonumber(data.Price) or 0 })
+local be, bf, bg = {}, {}, {}
+if aa and typeof(aa.Directory) == "table" then
+    local bh = {}
+    for bi, bj in pairs(aa.Directory) do
+        table.insert(bh, { id = bi, name = bj.DisplayName, price = tonumber(bj.Price) or 0 })
     end
-    table.sort(trailEntries, function(left, right) return left.price < right.price end)
-    for _, entry in ipairs(trailEntries) do
-        table.insert(trailNames, entry.name)
-        trailIdByName[entry.name] = entry.id
-        trailPriceByName[entry.name] = entry.price
+    table.sort(bh, function(bi, bj) return bi.price < bj.price end)
+    for _, bi in ipairs(bh) do
+        table.insert(be, bi.name)
+        bf[bi.name] = bi.id
+        bg[bi.name] = bi.price
     end
 end
 
-local gearPriceByName = {}
-if gearsModule then
-    local gearDirectory = gearsModule.Directory or gearsModule
-    if typeof(gearDirectory) == "table" then
-        for _, gearData in pairs(gearDirectory) do
-            if typeof(gearData) == "table" and typeof(gearData.DisplayName) == "string" then
-                gearPriceByName[gearData.DisplayName] = tonumber(gearData.MoneyCost) or 0
+local bh = {}
+if z then
+    local bi = z.Directory or z
+    if typeof(bi) == "table" then
+        for _, bj in pairs(bi) do
+            if typeof(bj) == "table" and typeof(bj.DisplayName) == "string" then
+                bh[bj.DisplayName] = tonumber(bj.MoneyCost) or 0
             end
         end
     end
@@ -304,664 +303,666 @@ end
 -- ============================================================
 -- STATE / TUNABLES
 -- ============================================================
-local MAX_SPEED            = 2000
-local STEAL_SPEED_DEFAULT  = 700
-local BYPASS_SPEED_DEFAULT = 800
+local bi       = 2000
+local bj  = 700
+local bk = 800
+local bl     = 2000
 
-local function clampReturnSpeed(value)
-    return math.clamp(tonumber(value) or BYPASS_SPEED_DEFAULT, 16, MAX_SPEED)
+local function bm(bn)
+    return math.clamp(tonumber(bn) or bk, 16, bl)
 end
 
-local ARRIVE_TOLERANCE = 4
-local HOLD_DURATION = 3
-local STEAL_MOVEMENT = { GrabDelay = 0.55, ReturnPace = 0.12, ArriveDistance = 1.35, MoveTimeout = 14 }
+local bo = 4
+local bp = 3
+local bq = { GrabDelay = 0.55, ReturnPace = 0.12, ArriveDistance = 1.35, MoveTimeout = 14 }
 
-local trackedConnections = {}
-local jobId = tostring(game.JobId)
-local jobIdLabel = jobId
-if #jobIdLabel > 18 then jobIdLabel = string.sub(jobIdLabel, 1, 18) .. "..." end
+local br = {}
+local bs = tostring(game.JobId)
+local bt = bs
+if #bt > 18 then bt = string.sub(bt, 1, 18) .. "..." end
 
-local carryingEgg = false
-local stolenEggs = 0
-local eggCarryWebhook = nil
-local taskBusy = false
-local taskLastRunAt = {}
-local treadmillTraining = false
-local isHopping = false
-local hopCooldownUntil = 0
-local eggCheckCountdown = 0
-local hopIntervalStart = os.clock()
-local lastTeleportError = nil
-local lastEquipBestAt = 0
-local nextPlaceSlotIndex = 1
-local plotFullUntil = 0
-local lastInputTick = tick()
-local lastAntiAfkJumpTick = tick()
-local disconnectHandled = false
-local renderingDisabled = false
-local fpsBoostSavedSettings = nil
-local fpsEffectWatcher = nil
-local fpsCapUnavailable = false
-local scriptStartTime = os.clock()
-local lastWebhookSentAt = os.clock()
-local knownEggUids, knownInventoryUids = {}, {}
-local webhookBaselineReady = false
-local lastRebirthCount = nil
-local lastStolenEggCount = 0
-local sessionEggsStolen, sessionPetsObtained, sessionRebirths = 0, 0, 0
-local eggSpawnQueue, stolenEggLog = {}, {}
-local espObjects, espDrawnKeys = {}, {}
+local bu = false
+local bv = 0
+local bw = nil
+local bx = false
+local by = {}
+local bz = false
+local ca = false
+local cb = 0
+local cc = 0
+local cd = os.clock()
+local ce = nil
+local cf = 0
+local cg = 1
+local ch = 0
+local ci = tick()
+local cj = tick()
+local ck = false
+local cl = false
+local cm = nil
+local cn = nil
+local co = false
+local cp = os.clock()
+local cq = os.clock()
+local cr, cs = {}, {}
+local ct = false
+local cu = nil
+local cv = 0
+local cw, cx, cy = 0, 0, 0
+local cz, da = {}, {}
+local db, dc = {}, {}
 
-local hopHistory = {}
+local dd = {}
 if getgenv then
-    local existingHistory = getgenv().ApexHubHopHistory
-    if typeof(existingHistory) ~= "table" then existingHistory = {}; getgenv().ApexHubHopHistory = existingHistory end
-    hopHistory = existingHistory
+    local de = getgenv().ApexHubHopHistory
+    if typeof(de) ~= "table" then de = {}; getgenv().ApexHubHopHistory = de end
+    dd = de
 end
 
-local areasFolder = Workspace:FindFirstChild("__OBJECTS") and Workspace.__OBJECTS:FindFirstChild("Areas")
-if not areasFolder then
-    local objects = Workspace:WaitForChild("__OBJECTS", 8)
-    areasFolder = objects and objects:WaitForChild("Areas", 8)
+local de = h:FindFirstChild("__OBJECTS") and h.__OBJECTS:FindFirstChild("Areas")
+if not de then
+    local df = h:WaitForChild("__OBJECTS", 8)
+    de = df and df:WaitForChild("Areas", 8)
 end
-local guardAreasFolder = areasFolder and areasFolder:FindFirstChild("GuardAreas")
-if areasFolder and not guardAreasFolder then guardAreasFolder = areasFolder:WaitForChild("GuardAreas", 6) end
+local df = de and de:FindFirstChild("GuardAreas")
+if de and not df then df = de:WaitForChild("GuardAreas", 6) end
 
-local areaEggSlotsClient = Workspace:FindFirstChild("AreaEggSlotsClient")
-if not areaEggSlotsClient then areaEggSlotsClient = Workspace:WaitForChild("AreaEggSlotsClient", 10) end
+local dg = h:FindFirstChild("AreaEggSlotsClient")
+if not dg then dg = h:WaitForChild("AreaEggSlotsClient", 10) end
 
-local espFolder = Instance.new("Folder")
-espFolder.Name = "ApexEggEsp"
-espFolder.Parent = Workspace
+local dh = Instance.new("Folder")
+dh.Name = "ApexEggEsp"
+dh.Parent = h
 
-function Hub.track(connection) table.insert(trackedConnections, connection); return connection end
+function r.track(di) table.insert(br, di); return di end
 
 -- ============================================================
 -- ANTI-KICK HELPERS
 -- ============================================================
-local function jitterOffset(magnitude)
-    local spread = magnitude or 0.15
+local function di(dj)
+    local dl = dj or 0.15
     return Vector3.new(
-        (math.random() - 0.5) * spread,
+        (math.random() - 0.5) * dl,
         0,
-        (math.random() - 0.5) * spread
+        (math.random() - 0.5) * dl
     )
 end
 
-local lastCframeSetTime = 0
-local ANTI_KICK_INTERVAL = 1 / 45
-local function setCframeSafely(part, cframe)
-    if not part or not cframe then return end
-    local now = os.clock()
-    if now - lastCframeSetTime < ANTI_KICK_INTERVAL then return end
-    lastCframeSetTime = now
-    pcall(function() part.CFrame = cframe end)
+local dk = 0
+local dl = 1 / 45
+local function dm(dn, dp)
+    if not dn or not dp then return end
+    local ds = os.clock()
+    if ds - dk < dl then return end
+    dk = ds
+    pcall(function() dn.CFrame = dp end)
 end
 
 -- ============================================================
 -- GAME HELPERS
 -- ============================================================
-function Hub.getHumanoid()
-    local character = LocalPlayer.Character
-    return character and character:FindFirstChildOfClass("Humanoid") or nil
+function r.getHumanoid()
+    local dq = m.Character
+    return dq and dq:FindFirstChildOfClass("Humanoid") or nil
 end
-function Hub.getRoot()
-    local character = LocalPlayer.Character
-    return character and character:FindFirstChild("HumanoidRootPart") or nil
+function r.getRoot()
+    local dq = m.Character
+    return dq and dq:FindFirstChild("HumanoidRootPart") or nil
 end
-function Hub.getSave()
-    if not saveModule or typeof(saveModule.Get) ~= "function" then return nil end
-    local ok, data = pcall(saveModule.Get)
-    return ok and data or nil
+function r.getSave()
+    if not t or typeof(t.Get) ~= "function" then return nil end
+    local dq, dr = pcall(t.Get)
+    return dq and dr or nil
 end
-function Hub.netInvoke(remote, ...)
-    if typeof(remote) ~= "Instance" then return nil end
-    local args = table.pack(...)
-    local result, done = nil, false
+function r.netInvoke(dq, ...)
+    if typeof(dq) ~= "Instance" then return nil end
+    local dr = table.pack(...)
+    local ds, dt = nil, false
     task.spawn(function()
-        if remote:IsA("RemoteFunction") then
-            result = table.pack(pcall(function() return remote:InvokeServer(table.unpack(args, 1, args.n)) end))
-        elseif remote:IsA("RemoteEvent") then
-            result = table.pack(pcall(function() remote:FireServer(table.unpack(args, 1, args.n)); return true end))
-        else result = table.pack(false) end
-        done = true
+        if dq:IsA("RemoteFunction") then
+            ds = table.pack(pcall(function() return dq:InvokeServer(table.unpack(dr, 1, dr.n)) end))
+        elseif dq:IsA("RemoteEvent") then
+            ds = table.pack(pcall(function() dq:FireServer(table.unpack(dr, 1, dr.n)); return true end))
+        else ds = table.pack(false) end
+        dt = true
     end)
-    Hub.waitFor(8, 0.05, function() return done == true end)
-    if not done or result[1] ~= true then return nil end
-    return result[2], result[3]
+    r.waitFor(8, 0.05, function() return dt == true end)
+    if not dt or ds[1] ~= true then return nil end
+    return ds[2], ds[3]
 end
-function Hub.netCall(remote, ...)
-    if typeof(remote) == "Instance" and remote:IsA("RemoteEvent") then
-        return pcall(function(...) remote:FireServer(...) end, ...)
+function r.netCall(dq, ...)
+    if typeof(dq) == "Instance" and dq:IsA("RemoteEvent") then
+        return pcall(function(...) dq:FireServer(...) end, ...)
     end
-    return Hub.netInvoke(remote, ...)
+    return r.netInvoke(dq, ...)
 end
-function Hub.countTable(target)
-    if typeof(target) ~= "table" then return 0 end
-    local count = 0
-    for _ in pairs(target) do count = count + 1 end
-    return count
+function r.countTable(dq)
+    if typeof(dq) ~= "table" then return 0 end
+    local dr = 0
+    for _ in pairs(dq) do dr = dr + 1 end
+    return dr
 end
-function Hub.formatNumber(value)
-    local amount = tonumber(value) or 0
-    local suffixes = { "", "K", "M", "B", "T", "Qa", "Qi" }
-    local suffixIndex = 1
+function r.formatNumber(dq)
+    local dr = tonumber(dq) or 0
+    local ds = { "", "K", "M", "B", "T", "Qa", "Qi" }
+    local dt = 1
     for _ = 1, 6 do
-        if amount >= 1000 then amount = amount / 1000; suffixIndex = suffixIndex + 1 end
+        if dr >= 1000 then dr = dr / 1000; dt = dt + 1 end
     end
-    if suffixIndex == 1 then return string.format("%d", amount) end
-    return string.format("%.2f%s", amount, suffixes[suffixIndex])
+    if dt == 1 then return string.format("%d", dr) end
+    return string.format("%.2f%s", dr, ds[dt])
 end
-function Hub.formatElapsed(seconds)
-    local totalSeconds = math.max(0, math.floor(seconds))
-    local hours = math.floor(totalSeconds / 3600)
-    local minutes = math.floor((totalSeconds % 3600) / 60)
-    if hours > 0 then return string.format("%dh %dm", hours, minutes) end
-    return string.format("%dm", minutes)
+function r.formatElapsed(dq)
+    local dr = math.max(0, math.floor(dq))
+    local ds = math.floor(dr / 3600)
+    local dt = math.floor((dr % 3600) / 60)
+    if ds > 0 then return string.format("%dh %dm", ds, dt) end
+    return string.format("%dm", dt)
 end
-function Hub.resolveRarity(category)
-    if typeof(category) ~= "string" or not assetsModule or typeof(assetsModule.Directory) ~= "table" then return nil end
-    local asset = assetsModule.Directory[category]
-    local rarity = asset and asset.Rarity
-    if not rarity then return nil end
-    return rarity._id or rarity.DisplayName
+function r.resolveRarity(dq)
+    if typeof(dq) ~= "string" or not y or typeof(y.Directory) ~= "table" then return nil end
+    local dr = y.Directory[dq]
+    local ds = dr and dr.Rarity
+    if not ds then return nil end
+    return ds._id or ds.DisplayName
 end
-function Hub.assetName(category)
-    if assetsModule and typeof(assetsModule.Directory) == "table" then
-        local asset = assetsModule.Directory[category or ""]
-        if asset and asset.DisplayName then return asset.DisplayName end
+function r.assetName(dq)
+    if y and typeof(y.Directory) == "table" then
+        local dr = y.Directory[dq or ""]
+        if dr and dr.DisplayName then return dr.DisplayName end
     end
-    return tostring(category or "Unknown")
+    return tostring(dq or "Unknown")
 end
-function Hub.recordMutations(asset)
-    local mutations = {}
-    if typeof(asset) ~= "table" then return mutations end
-    if typeof(asset.Mutations) == "table" then
-        for _, mutation in pairs(asset.Mutations) do
-            if typeof(mutation) == "string" then table.insert(mutations, mutation) end
+function r.recordMutations(dq)
+    local dr = {}
+    if typeof(dq) ~= "table" then return dr end
+    if typeof(dq.Mutations) == "table" then
+        for _, ds in pairs(dq.Mutations) do
+            if typeof(ds) == "string" then table.insert(dr, ds) end
         end
     end
-    if typeof(asset.BaseMutation) == "string" then table.insert(mutations, asset.BaseMutation) end
-    return mutations
+    if typeof(dq.BaseMutation) == "string" then table.insert(dr, dq.BaseMutation) end
+    return dr
 end
-function Hub.getLaneZ()
-    if areasFolder then
-        local gameplayBound = areasFolder:FindFirstChild("GameplayZ")
-        if gameplayBound and gameplayBound:IsA("BasePart") then return gameplayBound.Position.Z end
-        local separationLine = areasFolder:FindFirstChild("SeparationLine")
-        if separationLine and separationLine:IsA("BasePart") then return separationLine.Position.Z end
+function r.getLaneZ()
+    if de then
+        local dq = de:FindFirstChild("GameplayZ")
+        if dq and dq:IsA("BasePart") then return dq.Position.Z end
+        local dr = de:FindFirstChild("SeparationLine")
+        if dr and dr:IsA("BasePart") then return dr.Position.Z end
     end
     return -365.5
 end
-function Hub.getLaneY()
-    if areasFolder then
-        local gameplayBound = areasFolder:FindFirstChild("GameplayZ")
-        if gameplayBound and gameplayBound:IsA("BasePart") then return gameplayBound.Position.Y + 3 end
+function r.getLaneY()
+    if de then
+        local dq = de:FindFirstChild("GameplayZ")
+        if dq and dq:IsA("BasePart") then return dq.Position.Y + 3 end
     end
-    local root = Hub.getRoot()
-    return root and root.Position.Y or 70
+    local dq = r.getRoot()
+    return dq and dq.Position.Y or 70
 end
-function Hub.getEntryPosition()
-    if areasFolder then
-        local startArea = areasFolder:FindFirstChild("StartArea")
-        if startArea and startArea:IsA("BasePart") then return Vector3.new(startArea.Position.X, Hub.getLaneY(), Hub.getLaneZ()) end
-        local separationLine = areasFolder:FindFirstChild("SeparationLine")
-        if separationLine and separationLine:IsA("BasePart") then return Vector3.new(separationLine.Position.X, Hub.getLaneY(), Hub.getLaneZ()) end
+function r.getEntryPosition()
+    if de then
+        local dq = de:FindFirstChild("StartArea")
+        if dq and dq:IsA("BasePart") then return Vector3.new(dq.Position.X, r.getLaneY(), r.getLaneZ()) end
+        local dr = de:FindFirstChild("SeparationLine")
+        if dr and dr:IsA("BasePart") then return Vector3.new(dr.Position.X, r.getLaneY(), r.getLaneZ()) end
     end
-    return Vector3.new(543.5, Hub.getLaneY(), Hub.getLaneZ())
+    return Vector3.new(543.5, r.getLaneY(), r.getLaneZ())
 end
-function Hub.getZoneModel(zoneId) return guardAreasFolder and guardAreasFolder:FindFirstChild(zoneId) end
-function Hub.getZoneLaneCenter(zoneId)
-    local zoneModel = Hub.getZoneModel(zoneId)
-    if not zoneModel then return nil end
-    local bounds = zoneModel:FindFirstChild("Bounds")
-    if bounds and bounds:IsA("BasePart") then return Vector3.new(bounds.Position.X, Hub.getLaneY(), Hub.getLaneZ()) end
-    local ok, boundingBox = pcall(function() return zoneModel:GetBoundingBox() end)
-    if ok and boundingBox then return Vector3.new(boundingBox.Position.X, Hub.getLaneY(), Hub.getLaneZ()) end
+function r.getZoneModel(dq) return df and df:FindFirstChild(dq) end
+function r.getZoneLaneCenter(dq)
+    local dr = r.getZoneModel(dq)
+    if not dr then return nil end
+    local ds = dr:FindFirstChild("Bounds")
+    if ds and ds:IsA("BasePart") then return Vector3.new(ds.Position.X, r.getLaneY(), r.getLaneZ()) end
+    local dt, du = pcall(function() return dr:GetBoundingBox() end)
+    if dt and du then return Vector3.new(du.Position.X, r.getLaneY(), r.getLaneZ()) end
     return nil
 end
-function Hub.stripCheatMovers(root)
-    if not root then return end
-    for _, child in ipairs(root:GetChildren()) do
-        local className = child.ClassName
-        if className == "BodyVelocity" or className == "BodyPosition" or className == "BodyGyro"
-            or className == "BodyAngularVelocity" or className == "LinearVelocity"
-            or className == "VectorForce" or className == "AlignOrientation" then
-            pcall(function() child:Destroy() end)
+function r.stripCheatMovers(dq)
+    if not dq then return end
+    for _, dr in ipairs(dq:GetChildren()) do
+        local ds = dr.ClassName
+        if ds == "BodyVelocity" or ds == "BodyPosition" or ds == "BodyGyro"
+            or ds == "BodyAngularVelocity" or ds == "LinearVelocity"
+            or ds == "VectorForce" or ds == "AlignOrientation" then
+            pcall(function() dr:Destroy() end)
         end
     end
 end
-function Hub.stopSoftMove(root)
-    if not root then return end
-    for _, child in ipairs(root:GetChildren()) do
-        if child:IsA("AlignPosition") then pcall(function() child.Enabled = false; child:Destroy() end) end
+function r.stopSoftMove(dq)
+    if not dq then return end
+    for _, dr in ipairs(dq:GetChildren()) do
+        if dr:IsA("AlignPosition") then pcall(function() dr.Enabled = false; dr:Destroy() end) end
     end
 end
-function Hub.placeRoot(root, cframe)
-    if not root or not cframe then return end
-    Hub.stopSoftMove(root); Hub.stripCheatMovers(root)
-    local character = LocalPlayer.Character
-    if character and character.Parent then
-        pcall(function() character:PivotTo(cframe) end)
+function r.placeRoot(dq, dr)
+    if not dq or not dr then return end
+    r.stopSoftMove(dq); r.stripCheatMovers(dq)
+    local ds = m.Character
+    if ds and ds.Parent then
+        pcall(function() ds:PivotTo(dr) end)
     else
-        setCframeSafely(root, cframe)
+        dm(dq, dr)
     end
 end
-function Hub.groundedY(x, z, fallbackY)
-    local laneY = Hub.getLaneY()
-    local root = Hub.getRoot()
-    local humanoid = Hub.getHumanoid()
-    local hipOffset = 2
-    if humanoid and humanoid.HipHeight > 0 then hipOffset = humanoid.HipHeight end
-    local rootHalfExtent = root and root.Size.Y * 0.5 or 1
-    local standOffset = hipOffset + rootHalfExtent
-    local groundCeiling = laneY + 1.5
-    local ignored = {}
-    if LocalPlayer.Character then table.insert(ignored, LocalPlayer.Character) end
-    local rayParams = RaycastParams.new()
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-    local startY = laneY + 40
-    local groundY = nil
+function r.groundedY(dq, dr, ds)
+    local dt = r.getLaneY()
+    local du = r.getRoot()
+    local dv = r.getHumanoid()
+    local dw = 2
+    if dv and dv.HipHeight > 0 then dw = dv.HipHeight end
+    local dx = du and du.Size.Y * 0.5 or 1
+    local dy = dw + dx
+    local dz = dt + 1.5
+    local ea = {}
+    if m.Character then table.insert(ea, m.Character) end
+    local eb = RaycastParams.new()
+    eb.FilterType = Enum.RaycastFilterType.Exclude
+    local ec = dt + 40
+    local ed = nil
     for _ = 1, 20 do
-        rayParams.FilterDescendantsInstances = ignored
-        local hit = Workspace:Raycast(Vector3.new(x, startY, z), Vector3.new(0, -160, 0), rayParams)
-        if not hit then break end
-        local hitY = hit.Position.Y
-        local hitName = hit.Instance.Name
-        local isGround = hitName == "Ground" or string.find(string.lower(hitName), "ground", 1, true) ~= nil
-        if isGround or hitY <= groundCeiling then groundY = hitY; break end
-        table.insert(ignored, hit.Instance)
+        eb.FilterDescendantsInstances = ea
+        local ee = h:Raycast(Vector3.new(dq, ec, dr), Vector3.new(0, -160, 0), eb)
+        if not ee then break end
+        local ef = ee.Position.Y
+        local eg = ee.Instance.Name
+        local eh = eg == "Ground" or string.find(string.lower(eg), "ground", 1, true) ~= nil
+        if eh or ef <= dz then ed = ef; break end
+        table.insert(ea, ee.Instance)
     end
-    if groundY then return math.clamp(groundY + standOffset, laneY - 2, laneY + 5) end
-    if typeof(fallbackY) == "number" then return math.clamp(fallbackY, laneY - 2, laneY + 5) end
-    return laneY + 3
+    if ed then return math.clamp(ed + dy, dt - 2, dt + 5) end
+    if typeof(ds) == "number" then return math.clamp(ds, dt - 2, dt + 5) end
+    return dt + 3
 end
 
 -- ============================================================
 -- STEAL / BYPASS SPEED
 -- ============================================================
-function Hub.stealSpeed()
-    local optionSpeed = tonumber(Hub.optionValue("StealMoveSpeed", STEAL_SPEED_DEFAULT)) or STEAL_SPEED_DEFAULT
-    return math.clamp(optionSpeed, 16, MAX_SPEED)
+function r.stealSpeed()
+    local dq = tonumber(r.optionValue("StealMoveSpeed", bj)) or bj
+    return math.clamp(dq, 16, bi)
 end
-function Hub.bypassSpeed()
-    local optionSpeed = tonumber(Hub.optionValue("BypassReturnSpeed", BYPASS_SPEED_DEFAULT)) or BYPASS_SPEED_DEFAULT
-    return clampReturnSpeed(optionSpeed)
+function r.bypassSpeed()
+    local dq = tonumber(r.optionValue("BypassReturnSpeed", bk)) or bk
+    return bm(dq)
 end
 
-function Hub.swapStealHumanoid()
-    local character = LocalPlayer.Character
-    if not character then return false end
-    for _, descendant in ipairs(character:GetDescendants()) do
-        if descendant:IsA("LocalScript") and string.find(descendant.Name, "PushBack") then
-            pcall(function() descendant.Disabled = true; descendant:Destroy() end)
+function r.swapStealHumanoid()
+    local dq = m.Character
+    if not dq then return false end
+    for _, dr in ipairs(dq:GetDescendants()) do
+        if dr:IsA("LocalScript") and string.find(dr.Name, "PushBack") then
+            pcall(function() dr.Disabled = true; dr:Destroy() end)
         end
     end
     return true
 end
 
-function Hub.prepareStealHumanoid()
-    local character = LocalPlayer.Character
-    if not character then return nil end
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return nil end
+function r.prepareStealHumanoid()
+    local dq = m.Character
+    if not dq then return nil end
+    local dr = dq:FindFirstChildOfClass("Humanoid")
+    if not dr then return nil end
 
-    local camera = Workspace.CurrentCamera
-    local cameraFrame = camera and camera.CFrame or nil
+    local ds = h.CurrentCamera
+    local dt = ds and ds.CFrame or nil
 
-    local swapHumanoid = nil
-    local ok, clone = pcall(function()
-        humanoid.Archivable = true
-        return humanoid:Clone()
+    local du = nil
+    local dv, dw = pcall(function()
+        dr.Archivable = true
+        return dr:Clone()
     end)
 
-    if ok and clone then
-        swapHumanoid = clone
-        swapHumanoid.Parent = character
-        RunService.Heartbeat:Wait()
+    if dv and dw then
+        du = dw
+        du.Parent = dq
+        c.Heartbeat:Wait()
         pcall(function()
-            if humanoid and humanoid.Parent then humanoid:Destroy() end
+            if dr and dr.Parent then dr:Destroy() end
         end)
     else
-        swapHumanoid = humanoid
+        du = dr
     end
 
     task.wait(0.1)
 
-    swapHumanoid = character:FindFirstChildOfClass("Humanoid") or swapHumanoid
-    if swapHumanoid then
-        swapHumanoid.Sit = false
-        swapHumanoid.PlatformStand = false
-        swapHumanoid.WalkSpeed = Hub.stealSpeed()
-        swapHumanoid.AutoRotate = true
+    du = dq:FindFirstChildOfClass("Humanoid") or du
+    if du then
+        du.Sit = false
+        du.PlatformStand = false
+        du.WalkSpeed = r.stealSpeed()
+        du.AutoRotate = true
     end
 
-    if camera and swapHumanoid then
+    if ds and du then
         pcall(function()
-            camera.CameraSubject = swapHumanoid
-            if cameraFrame then camera.CFrame = cameraFrame end
+            ds.CameraSubject = du
+            if dt then ds.CFrame = dt end
         end)
     end
 
-    return swapHumanoid
+    return du
 end
 
-function Hub.buildStealPath(from, to)
-    local laneZ, laneY = Hub.getLaneZ(), Hub.getLaneY()
-    local path = {}
-    if math.abs(from.Z - laneZ) > 3 then table.insert(path, Vector3.new(from.X, laneY, laneZ)) end
-    if math.abs(from.X - to.X) > 2 then table.insert(path, Vector3.new(to.X, laneY, laneZ)) end
-    table.insert(path, Vector3.new(to.X, laneY, to.Z))
-    return path
+function r.buildStealPath(dq, dr)
+    local ds, dt = r.getLaneZ(), r.getLaneY()
+    local du = {}
+    if math.abs(dq.Z - ds) > 3 then table.insert(du, Vector3.new(dq.X, dt, ds)) end
+    if math.abs(dq.X - dr.X) > 2 then table.insert(du, Vector3.new(dr.X, dt, ds)) end
+    table.insert(du, Vector3.new(dr.X, dt, dr.Z))
+    return du
 end
 
-function Hub.humanoidStealMoveTo(target, cancel)
-    if typeof(target) ~= "Vector3" or not isRunning then return false end
-    local character = LocalPlayer.Character
-    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-    local root = Hub.getRoot()
-    if not humanoid or not root then return false end
+function r.humanoidStealMoveTo(dq, dr)
+    if typeof(dq) ~= "Vector3" or not s then return false end
+    local ds = m.Character
+    local dt = ds and ds:FindFirstChildOfClass("Humanoid")
+    local du = r.getRoot()
+    if not dt or not du then return false end
 
-    humanoid.Sit = false
-    humanoid.PlatformStand = false
-    humanoid.AutoRotate = true
-    humanoid.WalkSpeed = Hub.stealSpeed()
+    dt.Sit = false
+    dt.PlatformStand = false
+    dt.AutoRotate = true
+    dt.WalkSpeed = r.stealSpeed()
 
-    local groundedY = Hub.groundedY(target.X, target.Z, root.Position.Y)
-    local dest = Vector3.new(target.X, groundedY, target.Z)
-    if (root.Position - dest).Magnitude <= STEAL_MOVEMENT.ArriveDistance then return true end
+    local dv = r.groundedY(dq.X, dq.Z, du.Position.Y)
+    local dw = Vector3.new(dq.X, dv, dq.Z)
+    if (du.Position - dw).Magnitude <= bq.ArriveDistance then return true end
 
-    local path = Hub.buildStealPath(root.Position, dest)
-    if #path == 0 then path = { dest } end
+    local dx = r.buildStealPath(du.Position, dw)
+    if #dx == 0 then dx = { dw } end
 
-    local heartbeatCount = 0
-    for _, point in ipairs(path) do
-        if not isRunning or (cancel and not cancel()) then return false end
-        root = Hub.getRoot(); if not root then return false end
-        local pointY = Hub.groundedY(point.X, point.Z, root.Position.Y)
-        local stopPoint = Vector3.new(point.X, pointY, point.Z)
-        local deadline = os.clock() + STEAL_MOVEMENT.MoveTimeout
+    local dy = 0
+    for _, dz in ipairs(dx) do
+        if not s or (dr and not dr()) then return false end
+        du = r.getRoot(); if not du then return false end
+        local ea = r.groundedY(dz.X, dz.Z, du.Position.Y)
+        local eb = Vector3.new(dz.X, ea, dz.Z)
+        local ec = os.clock() + bq.MoveTimeout
 
-        while isRunning and os.clock() < deadline do
-            if cancel and not cancel() then return false end
-            root = Hub.getRoot(); if not root then return false end
-            local delta = stopPoint - root.Position
-            local distance = delta.Magnitude
-            if distance <= STEAL_MOVEMENT.ArriveDistance then break end
+        while s and os.clock() < ec do
+            if dr and not dr() then return false end
+            du = r.getRoot(); if not du then return false end
+            local ed = eb - du.Position
+            local ee = ed.Magnitude
+            if ee <= bq.ArriveDistance then break end
 
-            local direction = delta.Unit
-            local frameTime = math.clamp(RunService.Heartbeat:Wait(), 0, 1 / 30)
-            local step = math.min(Hub.stealSpeed() * frameTime, distance)
-            local nextPosition = root.Position + direction * step + jitterOffset(0.1)
+            local ef = ed.Unit
+            local eg = math.clamp(c.Heartbeat:Wait(), 0, 1 / 30)
+            local eh = math.min(r.stealSpeed() * eg, ee)
+            local ei = du.Position + ef * eh + di(0.1)
 
-            local lookDirection = Vector3.new(direction.X, 0, direction.Z)
-            local lookFrame
-            if lookDirection.Magnitude > 0.001 then
-                lookFrame = CFrame.lookAt(nextPosition, nextPosition + lookDirection.Unit)
+            local ej = Vector3.new(ef.X, 0, ef.Z)
+            local ek
+            if ej.Magnitude > 0.001 then
+                ek = CFrame.lookAt(ei, ei + ej.Unit)
             else
-                lookFrame = CFrame.new(nextPosition)
+                ek = CFrame.new(ei)
             end
-            setCframeSafely(root, lookFrame)
+            dm(du, ek)
 
-            heartbeatCount = heartbeatCount + 1
-            if heartbeatCount % 4 == 0 then
-                root.AssemblyLinearVelocity = Vector3.zero
-                root.AssemblyAngularVelocity = Vector3.zero
+            dy = dy + 1
+            if dy % 4 == 0 then
+                du.AssemblyLinearVelocity = Vector3.zero
+                du.AssemblyAngularVelocity = Vector3.zero
             end
         end
     end
 
-    root = Hub.getRoot(); if not root then return false end
-    Hub.placeRoot(root, CFrame.new(dest))
-    return (root.Position - dest).Magnitude <= math.max(3, STEAL_MOVEMENT.ArriveDistance + 1)
+    du = r.getRoot(); if not du then return false end
+    r.placeRoot(du, CFrame.new(dw))
+    return (du.Position - dw).Magnitude <= math.max(3, bq.ArriveDistance + 1)
 end
 
-function Hub.stealMoveTo(x, z, cancel)
-    local root = Hub.getRoot(); if not root then return false end
-    local groundedY = Hub.groundedY(x, z, root.Position.Y)
-    return Hub.humanoidStealMoveTo(Vector3.new(x, groundedY, z), cancel)
+function r.stealMoveTo(dq, dr, ds)
+    local dt = r.getRoot(); if not dt then return false end
+    local du = r.groundedY(dq, dr, dt.Position.Y)
+    return r.humanoidStealMoveTo(Vector3.new(dq, du, dr), ds)
 end
-function Hub.stealAlong(points, cancel)
-    for _, point in ipairs(points) do
-        if cancel and not cancel() then return false end
-        if not Hub.stealMoveTo(point.X, point.Z, cancel) then return false end
+function r.stealAlong(dq, dr)
+    for _, ds in ipairs(dq) do
+        if dr and not dr() then return false end
+        if not r.stealMoveTo(ds.X, ds.Z, dr) then return false end
     end
     return true
 end
-function Hub.getBasePosition()
-    if plotApi.GetRespawnPointCFrame then
-        local point = plotApi.GetRespawnPointCFrame()
-        if point then return point.Position end
+function r.getBasePosition()
+    if ak.GetRespawnPointCFrame then
+        local dq = ak.GetRespawnPointCFrame()
+        if dq then return dq.Position end
     end
-    if not plotApi.GetPlotData then return nil end
-    local plotData = plotApi.GetPlotData()
-    if not plotData then return nil end
-    if plotData.CenterPoint then return plotData.CenterPoint.Position end
-    if plotData.PetArea then return plotData.PetArea.Position end
+    if not ak.GetPlotData then return nil end
+    local dq = ak.GetPlotData()
+    if not dq then return nil end
+    if dq.CenterPoint then return dq.CenterPoint.Position end
+    if dq.PetArea then return dq.PetArea.Position end
     return nil
 end
-function Hub.getPetAreaStandPosition()
-    if plotApi.GetPlotData then
-        local plotData = plotApi.GetPlotData()
-        if plotData and plotData.PetArea then return plotData.PetArea.Position + Vector3.new(0, 4, 0) end
+function r.getPetAreaStandPosition()
+    if ak.GetPlotData then
+        local dq = ak.GetPlotData()
+        if dq and dq.PetArea then return dq.PetArea.Position + Vector3.new(0, 4, 0) end
     end
-    return Hub.getBasePosition()
+    return r.getBasePosition()
 end
-function Hub.isNearPlot()
-    local root = Hub.getRoot(); if not root then return false end
-    if plotApi.IsWorldPositionWithinLocalPlotBounds and plotApi.IsWorldPositionWithinLocalPlotBounds(root.Position) then return true end
-    local standPosition = Hub.getPetAreaStandPosition()
-    return standPosition ~= nil and (root.Position - standPosition).Magnitude <= 30
+function r.isNearPlot()
+    local dq = r.getRoot(); if not dq then return false end
+    if ak.IsWorldPositionWithinLocalPlotBounds and ak.IsWorldPositionWithinLocalPlotBounds(dq.Position) then return true end
+    local dr = r.getPetAreaStandPosition()
+    return dr ~= nil and (dq.Position - dr).Magnitude <= 30
 end
 
-function Hub.bypassMoveTo(target, cancel, speed)
-    if typeof(target) ~= "Vector3" or not isRunning then return false end
-    speed = clampReturnSpeed(speed or Hub.bypassSpeed())
-    local root = Hub.getRoot(); if not root then return false end
+function r.bypassMoveTo(dq, dr, ds)
+    if typeof(dq) ~= "Vector3" or not s then return false end
+    ds = bm(ds or r.bypassSpeed())
+    local dt = r.getRoot(); if not dt then return false end
 
-    Hub.stripCheatMovers(root); Hub.stopSoftMove(root)
-    local humanoid = Hub.getHumanoid()
-    if humanoid then
-        humanoid.Sit = false
-        humanoid.PlatformStand = true
+    r.stripCheatMovers(dt); r.stopSoftMove(dt)
+    local du = r.getHumanoid()
+    if du then
+        du.Sit = false
+        du.PlatformStand = true
     end
 
-    local groundedY = Hub.groundedY(target.X, target.Z, root.Position.Y)
-    local dest = Vector3.new(target.X, groundedY, target.Z)
-    if (root.Position - dest).Magnitude <= ARRIVE_TOLERANCE then
-        if humanoid then humanoid.PlatformStand = false end
+    local dv = r.groundedY(dq.X, dq.Z, dt.Position.Y)
+    local dw = Vector3.new(dq.X, dv, dq.Z)
+    if (dt.Position - dw).Magnitude <= bo then
+        if du then du.PlatformStand = false end
         return true
     end
 
-    local velocity = Instance.new("BodyVelocity")
-    velocity.Name = "ApexBypassMove"
-    velocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-    velocity.P = 1250
-    velocity.Velocity = Vector3.zero
-    velocity.Parent = root
+    local dx = Instance.new("BodyVelocity")
+    dx.Name = "ApexBypassMove"
+    dx.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    dx.P = 1250
+    dx.Velocity = Vector3.zero
+    dx.Parent = dt
 
-    local gyro = Instance.new("BodyGyro")
-    gyro.Name = "ApexBypassGyro"
-    gyro.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-    gyro.P = 3000
-    gyro.D = 50
-    gyro.CFrame = root.CFrame
-    gyro.Parent = root
+    local dy = Instance.new("BodyGyro")
+    dy.Name = "ApexBypassGyro"
+    dy.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+    dy.P = 3000
+    dy.D = 50
+    dy.CFrame = dt.CFrame
+    dy.Parent = dt
 
-    local arrived, deadline = false, os.clock() + 15
-    while isRunning and os.clock() < deadline do
-        if cancel and not cancel() then break end
-        root = Hub.getRoot(); if not root then break end
-        local delta = dest - root.Position
-        local distance = delta.Magnitude
-        if distance <= ARRIVE_TOLERANCE then arrived = true; break end
-        local direction = delta.Unit
-        velocity.Velocity = direction * speed
-        local lookDirection = Vector3.new(direction.X, 0, direction.Z)
-        if lookDirection.Magnitude > 0.001 then
-            gyro.CFrame = CFrame.lookAt(root.Position, root.Position + lookDirection.Unit)
+    local dz, ea = false, os.clock() + 15
+    while s and os.clock() < ea do
+        if dr and not dr() then break end
+        dt = r.getRoot(); if not dt then break end
+        local eb = dw - dt.Position
+        local ec = eb.Magnitude
+        if ec <= bo then dz = true; break end
+        local ed = eb.Unit
+        dx.Velocity = ed * ds
+        local ee = Vector3.new(ed.X, 0, ed.Z)
+        if ee.Magnitude > 0.001 then
+            dy.CFrame = CFrame.lookAt(dt.Position, dt.Position + ee.Unit)
         end
-        RunService.Heartbeat:Wait()
+        c.Heartbeat:Wait()
     end
 
-    if velocity and velocity.Parent then velocity:Destroy() end
-    if gyro and gyro.Parent then gyro:Destroy() end
+    if dx and dx.Parent then dx:Destroy() end
+    if dy and dy.Parent then dy:Destroy() end
 
-    root = Hub.getRoot()
-    if root then
-        root.AssemblyLinearVelocity = Vector3.zero
-        root.AssemblyAngularVelocity = Vector3.zero
-        if arrived then Hub.placeRoot(root, CFrame.new(dest.X, groundedY, dest.Z)) end
+    dt = r.getRoot()
+    if dt then
+        dt.AssemblyLinearVelocity = Vector3.zero
+        dt.AssemblyAngularVelocity = Vector3.zero
+        if dz then r.placeRoot(dt, CFrame.new(dw.X, dv, dw.Z)) end
     end
-    humanoid = Hub.getHumanoid()
-    if humanoid then humanoid.PlatformStand = false end
-    return arrived
+    du = r.getHumanoid()
+    if du then du.PlatformStand = false end
+    return dz
 end
 
 -- ============================================================
 -- HOLD 3s: ĐỨNG CHẶT (Anchored). Hết 3s -> nhả anchor dứt khoát
 -- ============================================================
-function Hub.holdAtPosition(duration, cancel)
-    duration = tonumber(duration) or HOLD_DURATION
-    local root = Hub.getRoot(); if not root then return false end
-    local holdFrame = root.CFrame
+function r.holdAtPosition(dq, dr)
+    dq = tonumber(dq) or bp
+    local ds = r.getRoot(); if not ds then return false end
+    local dt = ds.CFrame
 
-    pcall(function() root.Anchored = true end)
+    pcall(function() ds.Anchored = true end)
 
-    local deadline = os.clock() + duration
-    while isRunning and os.clock() < deadline do
-        if cancel and not cancel() then break end
-        root = Hub.getRoot()
-        if root then
-            root.AssemblyLinearVelocity  = Vector3.zero
-            root.AssemblyAngularVelocity = Vector3.zero
-            pcall(function() root.CFrame = holdFrame end)
-            pcall(function() root.Anchored = true end)
+    local du = os.clock() + dq
+    while s and os.clock() < du do
+        if dr and not dr() then break end
+        ds = r.getRoot()
+        if ds then
+            ds.AssemblyLinearVelocity  = Vector3.zero
+            ds.AssemblyAngularVelocity = Vector3.zero
+            pcall(function() ds.CFrame = dt end)
+            pcall(function() ds.Anchored = true end)
         end
-        RunService.Heartbeat:Wait()
+        c.Heartbeat:Wait()
     end
 
-    root = Hub.getRoot()
-    if root then
-        pcall(function() root.Anchored = false end)
-        root.AssemblyLinearVelocity  = Vector3.zero
-        root.AssemblyAngularVelocity = Vector3.zero
+    -- Hết 3s -> NHẢ ANCHOR NGAY (không đứng chặt nữa)
+    ds = r.getRoot()
+    if ds then
+        pcall(function() ds.Anchored = false end)
+        ds.AssemblyLinearVelocity  = Vector3.zero
+        ds.AssemblyAngularVelocity = Vector3.zero
     end
     return true
 end
 
-function Hub.returnToBaseBypass(cancel)
-    local basePosition = Hub.getBasePosition()
-    if not basePosition then return false end
-    if cancel and not cancel() then return false end
-    return Hub.bypassMoveTo(Vector3.new(basePosition.X, basePosition.Y + 3, basePosition.Z), cancel, Hub.bypassSpeed())
+function r.returnToBaseBypass(dq)
+    local dr = r.getBasePosition()
+    if not dr then return false end
+    if dq and not dq() then return false end
+    return r.bypassMoveTo(Vector3.new(dr.X, dr.Y + 3, dr.Z), dq, r.bypassSpeed())
 end
-function Hub.returnToBase(cancel) return Hub.returnToBaseBypass(cancel) end
-function Hub.ensureAtPlot(cancel)
-    if cancel and not cancel() then return false end
-    if Hub.isNearPlot() then return true end
-    local standPosition = Hub.getPetAreaStandPosition()
-    if not standPosition then return false end
-    return Hub.bypassMoveTo(standPosition, cancel, Hub.bypassSpeed())
+function r.returnToBase(dq) return r.returnToBaseBypass(dq) end
+function r.ensureAtPlot(dq)
+    if dq and not dq() then return false end
+    if r.isNearPlot() then return true end
+    local dr = r.getPetAreaStandPosition()
+    if not dr then return false end
+    return r.bypassMoveTo(dr, dq, r.bypassSpeed())
 end
 
 -- ============================================================
 -- EGG / STEAL
 -- ============================================================
-function Hub.getAreaEggs()
-    if not eggApi.GetAreaEggSnapshot then return {} end
-    local snapshot = eggApi.GetAreaEggSnapshot()
-    if typeof(snapshot) ~= "table" or typeof(snapshot.Records) ~= "table" then
-        if eggApi.RequestAreaEggSnapshot then pcall(eggApi.RequestAreaEggSnapshot) end
-        snapshot = eggApi.GetAreaEggSnapshot()
+function r.getAreaEggs()
+    if not aj.GetAreaEggSnapshot then return {} end
+    local dq = aj.GetAreaEggSnapshot()
+    if typeof(dq) ~= "table" or typeof(dq.Records) ~= "table" then
+        if aj.RequestAreaEggSnapshot then pcall(aj.RequestAreaEggSnapshot) end
+        dq = aj.GetAreaEggSnapshot()
     end
-    if typeof(snapshot) ~= "table" or typeof(snapshot.Records) ~= "table" then return {} end
-    local records = {}
-    for _, record in pairs(snapshot.Records) do
-        if typeof(record) == "table" and typeof(record.Uid) == "string" then table.insert(records, record) end
+    if typeof(dq) ~= "table" or typeof(dq.Records) ~= "table" then return {} end
+    local dr = {}
+    for _, ds in pairs(dq.Records) do
+        if typeof(ds) == "table" and typeof(ds.Uid) == "string" then table.insert(dr, ds) end
     end
-    return records
+    return dr
 end
-function Hub.findAreaEggRecord(uid)
-    for _, record in ipairs(Hub.getAreaEggs()) do if record.Uid == uid then return record end end
+function r.findAreaEggRecord(dq)
+    for _, dr in ipairs(r.getAreaEggs()) do if dr.Uid == dq then return dr end end
     return nil
 end
-function Hub.getSlotEggPosition(eggSlot)
-    local hitPart = eggSlot:FindFirstChild("Hitbox")
-        or eggSlot:FindFirstChild("CustomBoundingBox")
-        or eggSlot:FindFirstChildOfClass("BasePart")
-    if hitPart then return hitPart.Position end
-    return eggSlot:GetPivot().Position
+function r.getSlotEggPosition(dq)
+    local dr = dq:FindFirstChild("Hitbox")
+        or dq:FindFirstChild("CustomBoundingBox")
+        or dq:FindFirstChildOfClass("BasePart")
+    if dr then return dr.Position end
+    return dq:GetPivot().Position
 end
-function Hub.isBigEgg(record)
-    if not Hub.isOn("StealBigEggs") then return false end
-    local scale = tonumber(record.AssetScale)
-    if not scale then return false end
-    return scale >= (tonumber(Hub.optionValue("StealBigEggScale", 1.5)) or 1.5)
+function r.isBigEgg(dq)
+    if not r.isOn("StealBigEggs") then return false end
+    local dr = tonumber(dq.AssetScale)
+    if not dr then return false end
+    return dr >= (tonumber(r.optionValue("StealBigEggScale", 1.5)) or 1.5)
 end
-function Hub.eggScore(record) return RARITY_RANK[Hub.resolveRarity(record.AssetCategory) or "Common"] or 0 end
-function Hub.isStealCandidate(record, allowAll)
-    if typeof(record) ~= "table" or typeof(record.Uid) ~= "string" then return false end
-    if record.State ~= "Slot" and record.State ~= "Dropped" then return false end
-    if allowAll then return true end
-    if Hub.isBigEgg(record) and Hub.selectionAllows("StealZones", record.AreaId) then return true end
-    if not Hub.isOn("AutoStealSelected") then return false end
-    return Hub.matchesEggFilters(record, "StealZones", "StealRarities", "StealMutations")
+function r.eggScore(dq) return au[r.resolveRarity(dq.AssetCategory) or "Common"] or 0 end
+function r.isStealCandidate(dq, dr)
+    if typeof(dq) ~= "table" or typeof(dq.Uid) ~= "string" then return false end
+    if dq.State ~= "Slot" and dq.State ~= "Dropped" then return false end
+    if dr then return true end
+    if r.isBigEgg(dq) and r.selectionAllows("StealZones", dq.AreaId) then return true end
+    if not r.isOn("AutoStealSelected") then return false end
+    return r.matchesEggFilters(dq, "StealZones", "StealRarities", "StealMutations")
 end
-function Hub.pickStealTarget()
-    local eggSlots = areaEggSlotsClient and areaEggSlotsClient:GetChildren() or {}
-    if #eggSlots == 0 then return nil end
-    local recordBySlot = {}
-    for _, record in ipairs(Hub.getAreaEggs()) do
-        if typeof(record.Uid) == "string" then recordBySlot[record.Uid] = record end
+function r.pickStealTarget()
+    local dq = dg and dg:GetChildren() or {}
+    if #dq == 0 then return nil end
+    local dr = {}
+    for _, ds in ipairs(r.getAreaEggs()) do
+        if typeof(ds.Uid) == "string" then dr[ds.Uid] = ds end
     end
-    local allowAll = Hub.isOn("AutoStealAll") and not Hub.isOn("AutoStealSelected")
-    local root = Hub.getRoot()
-    local priorityMode = Hub.optionValue("StealPriority", "Rarest")
-    local bestSlot, bestScore = nil, -math.huge
-    for _, eggSlot in ipairs(eggSlots) do
-        local record = recordBySlot[eggSlot.Name]
-        local eligible = record and Hub.isStealCandidate(record, allowAll) or (record == nil and allowAll)
-        if eligible then
-            local slotPosition = Hub.getSlotEggPosition(eggSlot)
-            local distance = root and slotPosition and (root.Position - slotPosition).Magnitude or math.huge
-            local score
-            if priorityMode == "Nearest" then score = -distance
-            elseif priorityMode == "Furthest" then score = distance
-            elseif priorityMode == "Biggest Size" then score = tonumber(record and record.AssetScale) or 0
-            else score = (record and Hub.eggScore(record) or 0) * 100000 - math.min(distance, 99999) end
-            if score > bestScore then bestSlot = eggSlot; bestScore = score end
+    local ds = r.isOn("AutoStealAll") and not r.isOn("AutoStealSelected")
+    local dt = r.getRoot()
+    local du = r.optionValue("StealPriority", "Rarest")
+    local dv, dw = nil, -math.huge
+    for _, dx in ipairs(dq) do
+        local dy = dr[dx.Name]
+        local dz = dy and r.isStealCandidate(dy, ds) or (dy == nil and ds)
+        if dz then
+            local ea = r.getSlotEggPosition(dx)
+            local eb = dt and ea and (dt.Position - ea).Magnitude or math.huge
+            local ec
+            if du == "Nearest" then ec = -eb
+            elseif du == "Furthest" then ec = eb
+            elseif du == "Biggest Size" then ec = tonumber(dy and dy.AssetScale) or 0
+            else ec = (dy and r.eggScore(dy) or 0) * 100000 - math.min(eb, 99999) end
+            if ec > dw then dv = dx; dw = ec end
         end
     end
-    return bestSlot
+    return dv
 end
-function Hub.stealingEnabled() return Hub.isOn("AutoStealSelected") or Hub.isOn("AutoStealAll") or Hub.isOn("StealBigEggs") end
-function Hub.eggInventoryCount()
-    local save = Hub.getSave()
-    local inventory = save and save.EggInventory
-    if typeof(inventory) ~= "table" then return 0 end
-    return Hub.countTable(inventory)
+function r.stealingEnabled() return r.isOn("AutoStealSelected") or r.isOn("AutoStealAll") or r.isOn("StealBigEggs") end
+function r.eggInventoryCount()
+    local dq = r.getSave()
+    local dr = dq and dq.EggInventory
+    if typeof(dr) ~= "table" then return 0 end
+    return r.countTable(dr)
 end
-function Hub.eggInventoryFull()
-    local maxInventory = eggsModule and tonumber(eggsModule.MAX_INVENTORY) or math.huge
-    return Hub.eggInventoryCount() >= maxInventory
+function r.eggInventoryFull()
+    local dq = w and tonumber(w.MAX_INVENTORY) or math.huge
+    return r.eggInventoryCount() >= dq
 end
-function Hub.canAutoSteal() return Hub.stealingEnabled() and not carryingEgg and not Hub.eggInventoryFull() end
-function Hub.tryCarryEgg(eggSlot)
-    if not eggSlot or not eggApi.RequestCarryAreaEgg then return false end
-    local uid = eggSlot.Name
-    local slotKey = nil
-    if slotApi.IsFirstAreaUid and slotApi.IsFirstAreaUid(uid) then
-        for _, record in ipairs(Hub.getAreaEggs()) do
-            if record.Uid == uid and slotApi.BuildSlotKey then
-                slotKey = slotApi.BuildSlotKey(record.AreaId, record.NestId)
+function r.canAutoSteal() return r.stealingEnabled() and not bu and not r.eggInventoryFull() end
+function r.tryCarryEgg(dq)
+    if not dq or not aj.RequestCarryAreaEgg then return false end
+    local dr = dq.Name
+    local ds = nil
+    if al.IsFirstAreaUid and al.IsFirstAreaUid(dr) then
+        for _, dt in ipairs(r.getAreaEggs()) do
+            if dt.Uid == dr and al.BuildSlotKey then
+                ds = al.BuildSlotKey(dt.AreaId, dt.NestId)
                 break
             end
         end
     end
-    local ok, result = pcall(function() return eggApi.RequestCarryAreaEgg(uid, slotKey) end)
-    if ok and result == true then return true end
-    return carryingEgg
+    local dt, du = pcall(function() return aj.RequestCarryAreaEgg(dr, ds) end)
+    if dt and du == true then return true end
+    return bu
 end
 
 -- ============================================================
@@ -973,1120 +974,1116 @@ end
 -- 5) Về base bằng bypass
 -- 6) Confirm -> loop
 -- ============================================================
-function Hub.stealEgg(targetSlot)
-    Hub.swapStealHumanoid()
-    if not Hub.prepareStealHumanoid() then return false end
+function r.stealEgg(dq)
+    r.swapStealHumanoid()
+    if not r.prepareStealHumanoid() then return false end
 
-    local targetPosition = Hub.getSlotEggPosition(targetSlot)
-    local root = Hub.getRoot()
-    if not root or not targetPosition then return false end
+    local dr = r.getSlotEggPosition(dq)
+    local ds = r.getRoot()
+    if not ds or not dr then return false end
 
-    -- 1) Đi tới target (bypassMoveTo giống teleport ở tab Player)
-    if Hub.isOn("StealByTeleport") then
-        root = Hub.getRoot()
-        if not root then return false end
-        if not Hub.bypassMoveTo(targetPosition, Hub.stealingEnabled, Hub.bypassSpeed()) then return false end
-    elseif not Hub.stealAlong(Hub.buildStealPath(root.Position, targetPosition), Hub.stealingEnabled) then
+    -- 1) Đi tới target
+    if not r.stealAlong(r.buildStealPath(ds.Position, dr), r.stealingEnabled) then
         return false
     end
 
-    root = Hub.getRoot()
-    if root then
-        local groundedY = Hub.groundedY(targetPosition.X, targetPosition.Z, targetPosition.Y)
-        Hub.placeRoot(root, CFrame.new(targetPosition.X, groundedY, targetPosition.Z))
+    ds = r.getRoot()
+    if ds then
+        local dt = r.groundedY(dr.X, dr.Z, dr.Y)
+        r.placeRoot(ds, CFrame.new(dr.X, dt, dr.Z))
     end
 
-    if not Hub.stealingEnabled() then return false end
+    if not r.stealingEnabled() then return false end
 
     -- 2) Nhặt lần 1
-    Hub.waitFor(STEAL_MOVEMENT.GrabDelay, 0.04, function()
-        root = Hub.getRoot()
-        if root then
-            local groundedY = Hub.groundedY(targetPosition.X, targetPosition.Z, targetPosition.Y)
-            Hub.placeRoot(root, CFrame.new(targetPosition.X, groundedY, targetPosition.Z))
+    r.waitFor(bq.GrabDelay, 0.04, function()
+        ds = r.getRoot()
+        if ds then
+            local dt = r.groundedY(dr.X, dr.Z, dr.Y)
+            r.placeRoot(ds, CFrame.new(dr.X, dt, dr.Z))
         end
-        if not Hub.stealingEnabled() then return true end
-        if not carryingEgg then Hub.tryCarryEgg(targetSlot) end
-        return carryingEgg == true
+        if not r.stealingEnabled() then return true end
+        if not bu then r.tryCarryEgg(dq) end
+        return bu == true
     end)
 
-    local carryDeadline = os.clock() + 2.5
-    while isRunning and Hub.stealingEnabled() and not carryingEgg and os.clock() < carryDeadline do
-        root = Hub.getRoot()
-        if root then
-            local groundedY = Hub.groundedY(targetPosition.X, targetPosition.Z, targetPosition.Y)
-            Hub.placeRoot(root, CFrame.new(targetPosition.X, groundedY, targetPosition.Z))
+    local dt = os.clock() + 2.5
+    while s and r.stealingEnabled() and not bu and os.clock() < dt do
+        ds = r.getRoot()
+        if ds then
+            local du = r.groundedY(dr.X, dr.Z, dr.Y)
+            r.placeRoot(ds, CFrame.new(dr.X, du, dr.Z))
         end
-        Hub.tryCarryEgg(targetSlot)
-        if carryingEgg then break end
+        r.tryCarryEgg(dq)
+        if bu then break end
         task.wait(0.05)
     end
 
-    if not carryingEgg then return false end
+    if not bu then return false end
 
     -- 3) Đứng chặt 3s (Anchored + zero velocity)
     do
-        local holdRoot = Hub.getRoot()
-        if holdRoot then
-            pcall(function() holdRoot.Anchored = true end)
-            holdRoot.AssemblyLinearVelocity  = Vector3.zero
-            holdRoot.AssemblyAngularVelocity = Vector3.zero
-            RunService.Heartbeat:Wait()
+        local du = r.getRoot()
+        if du then
+            pcall(function() du.Anchored = true end)
+            du.AssemblyLinearVelocity  = Vector3.zero
+            du.AssemblyAngularVelocity = Vector3.zero
+            c.Heartbeat:Wait()
         end
     end
-    Hub.holdAtPosition(HOLD_DURATION, Hub.stealingEnabled)
+    r.holdAtPosition(bp, r.stealingEnabled)
 
     -- 4) Hết 3s -> không còn đứng chặt (Anchored đã nhả trong holdAtPosition)
-    if not isRunning or not Hub.stealingEnabled() then return false end
+    if not s or not r.stealingEnabled() then return false end
 
     -- Nhặt lần 2
-    if not carryingEgg then Hub.tryCarryEgg(targetSlot); task.wait(0.1) end
-    local confirmDeadline = os.clock() + 1.5
-    while isRunning and Hub.stealingEnabled() and not carryingEgg and os.clock() < confirmDeadline do
-        Hub.tryCarryEgg(targetSlot); task.wait(0.05)
+    if not bu then r.tryCarryEgg(dq); task.wait(0.1) end
+    local du = os.clock() + 1.5
+    while s and r.stealingEnabled() and not bu and os.clock() < du do
+        r.tryCarryEgg(dq); task.wait(0.05)
     end
 
     -- 5) Về base bằng bypass
-    Hub.returnToBaseBypass(Hub.stealingEnabled)
+    r.returnToBaseBypass(r.stealingEnabled)
 
     -- 6) Confirm vòng hoàn tất
-    local returnDeadline = os.clock() + 3
-    while isRunning and Hub.stealingEnabled() and carryingEgg and os.clock() < returnDeadline do
+    local dv = os.clock() + 3
+    while s and r.stealingEnabled() and bu and os.clock() < dv do
         task.wait(0.1)
     end
     return true
 end
 
-function Hub.runAutoSteal()
-    if carryingEgg or Hub.eggInventoryFull() then return false end
-    local targetSlot = Hub.pickStealTarget()
-    if not targetSlot then return false end
-    return Hub.stealEgg(targetSlot)
+function r.runAutoSteal()
+    if bu or r.eggInventoryFull() then return false end
+    local dq = r.pickStealTarget()
+    if not dq then return false end
+    return r.stealEgg(dq)
 end
-function Hub.runAutoDropEgg()
-    if not carryingEgg then return false end
-    if eggApi.RequestDropHeldAreaEgg then return pcall(function() eggApi.RequestDropHeldAreaEgg("PlayerRequest") end) end
+function r.runAutoDropEgg()
+    if not bu then return false end
+    if aj.RequestDropHeldAreaEgg then return pcall(function() aj.RequestDropHeldAreaEgg("PlayerRequest") end) end
     return false
 end
-function Hub.runAutoReturn()
-    if not carryingEgg then return false end
-    local cancel = function() return Hub.isOn("AutoReturn") and carryingEgg end
-    if not Hub.returnToBaseBypass(cancel) then return false end
-    local root = Hub.getRoot()
-    if root and plotApi.IsWorldPositionWithinLocalPlotBounds and plotApi.IsWorldPositionWithinLocalPlotBounds(root.Position) then
-        Hub.waitFor(4, 0.15, function() return (not carryingEgg) or (not Hub.isOn("AutoReturn")) end)
+function r.runAutoReturn()
+    if not bu then return false end
+    local dq = function() return r.isOn("AutoReturn") and bu end
+    if not r.returnToBaseBypass(dq) then return false end
+    local dr = r.getRoot()
+    if dr and ak.IsWorldPositionWithinLocalPlotBounds and ak.IsWorldPositionWithinLocalPlotBounds(dr.Position) then
+        r.waitFor(4, 0.15, function() return (not bu) or (not r.isOn("AutoReturn")) end)
     end
     return true
 end
 
-if eggApi.AreaEggCarryStateChanged and typeof(eggApi.AreaEggCarryStateChanged.Connect) == "function" then
-    Hub.track(eggApi.AreaEggCarryStateChanged:Connect(function(payload)
-        local isCarrying = typeof(payload) == "table" and payload.IsCarrying == true
-        local earned = isCarrying and not carryingEgg
-        if earned then
-            stolenEggs = stolenEggs + 1
-            if eggCarryWebhook then eggCarryWebhook(payload) end
+if aj.AreaEggCarryStateChanged and typeof(aj.AreaEggCarryStateChanged.Connect) == "function" then
+    r.track(aj.AreaEggCarryStateChanged:Connect(function(dq)
+        local dr = typeof(dq) == "table" and dq.IsCarrying == true
+        local ds = dr and not bu
+        if ds then
+            bv = bv + 1
+            if bw then bw(dq) end
         end
-        carryingEgg = isCarrying
+        bu = dr
     end))
 end
 
 -- ============================================================
 -- PLACE / HATCH / SELL / FUSE / UPGRADE
 -- ============================================================
-function Hub.getUnplacedEggUids()
-    local save = Hub.getSave()
-    local inventory = save and save.EggInventory
-    local uids = {}
-    if typeof(inventory) ~= "table" then return uids end
-    local placeAll = Hub.isOn("AutoPlaceAll") and not Hub.isOn("AutoPlaceSelected")
-    for uid, egg in pairs(inventory) do
-        if typeof(uid) == "string" and typeof(egg) == "table" and egg.Placement == nil
-            and (placeAll or Hub.matchesEggFilters(egg, nil, "LifecycleRarities", "LifecycleMutations")) then
-            table.insert(uids, uid)
+function r.getUnplacedEggUids()
+    local dq = r.getSave()
+    local dr = dq and dq.EggInventory
+    local ds = {}
+    if typeof(dr) ~= "table" then return ds end
+    local dt = r.isOn("AutoPlaceAll") and not r.isOn("AutoPlaceSelected")
+    for du, dv in pairs(dr) do
+        if typeof(du) == "string" and typeof(dv) == "table" and dv.Placement == nil
+            and (dt or r.matchesEggFilters(dv, nil, "LifecycleRarities", "LifecycleMutations")) then
+            table.insert(ds, du)
         end
     end
-    return uids
+    return ds
 end
-function Hub.placingEnabled() return Hub.isOn("AutoPlaceSelected") or Hub.isOn("AutoPlaceAll") end
-function Hub.isPlotFull() return os.clock() < plotFullUntil end
-function Hub.markPlotFull() plotFullUntil = os.clock() + 30 end
-function Hub.getPlacementLocalCFrames()
-    if not plotApi.GetPlotData then return {} end
-    local plotData = plotApi.GetPlotData()
-    if not plotData or not plotData.PetArea or not plotData.CenterPoint then return {} end
-    local petArea, centerPoint = plotData.PetArea, plotData.CenterPoint
-    local areaSize = petArea.Size
-    local localCFrames = {}
-    for x = -areaSize.X * 0.5 + 5, areaSize.X * 0.5 - 5, 7 do
-        for z = -areaSize.Z * 0.5 + 5, areaSize.Z * 0.5 - 5, 7 do
-            local worldPosition = petArea.CFrame:PointToWorldSpace(Vector3.new(x, 1, z))
-            table.insert(localCFrames, centerPoint.CFrame:ToObjectSpace(CFrame.new(worldPosition)))
+function r.placingEnabled() return r.isOn("AutoPlaceSelected") or r.isOn("AutoPlaceAll") end
+function r.isPlotFull() return os.clock() < ch end
+function r.markPlotFull() ch = os.clock() + 30 end
+function r.getPlacementLocalCFrames()
+    if not ak.GetPlotData then return {} end
+    local dq = ak.GetPlotData()
+    if not dq or not dq.PetArea or not dq.CenterPoint then return {} end
+    local dr, ds = dq.PetArea, dq.CenterPoint
+    local dt = dr.Size
+    local du = {}
+    for dv = -dt.X * 0.5 + 5, dt.X * 0.5 - 5, 7 do
+        for dw = -dt.Z * 0.5 + 5, dt.Z * 0.5 - 5, 7 do
+            local dx = dr.CFrame:PointToWorldSpace(Vector3.new(dv, 1, dw))
+            table.insert(du, ds.CFrame:ToObjectSpace(CFrame.new(dx)))
         end
     end
-    return localCFrames
+    return du
 end
-function Hub.canAutoPlace()
-    return Hub.placingEnabled() and not carryingEgg and not Hub.isPlotFull() and #Hub.getUnplacedEggUids() > 0
+function r.canAutoPlace()
+    return r.placingEnabled() and not bu and not r.isPlotFull() and #r.getUnplacedEggUids() > 0
 end
-function Hub.runAutoPlaceEggs(force)
-    if carryingEgg or not eggApi.RequestPlaceEgg then return end
-    local function cancel() return (force == true or Hub.placingEnabled()) and not carryingEgg end
-    local uids = Hub.getUnplacedEggUids()
-    if #uids == 0 or not Hub.ensureAtPlot(cancel) then return end
-    local localCFrames = Hub.getPlacementLocalCFrames()
-    if #localCFrames == 0 then return end
-    local placedAny = false
-    for _, uid in ipairs(uids) do
-        if not isRunning or not cancel() then return placedAny end
-        if not Hub.isNearPlot() and not Hub.ensureAtPlot(cancel) then return placedAny end
-        if eggApi.RequestEquipTool then pcall(eggApi.RequestEquipTool, uid) end
+function r.runAutoPlaceEggs(dq)
+    if bu or not aj.RequestPlaceEgg then return end
+    local function dr() return (dq == true or r.placingEnabled()) and not bu end
+    local ds = r.getUnplacedEggUids()
+    if #ds == 0 or not r.ensureAtPlot(dr) then return end
+    local dt = r.getPlacementLocalCFrames()
+    if #dt == 0 then return end
+    local du = false
+    for _, dv in ipairs(ds) do
+        if not s or not dr() then return du end
+        if not r.isNearPlot() and not r.ensureAtPlot(dr) then return du end
+        if aj.RequestEquipTool then pcall(aj.RequestEquipTool, dv) end
         task.wait(0.15)
-        local placed = false
-        for offset = 0, #localCFrames - 1 do
-            local index = (nextPlaceSlotIndex + offset - 1) % #localCFrames + 1
-            local ok = false
-            pcall(function() ok = eggApi.RequestPlaceEgg(uid, localCFrames[index]) == true end)
-            if ok then
-                nextPlaceSlotIndex = index + 1
-                placed = true; placedAny = true
+        local dw = false
+        for dx = 0, #dt - 1 do
+            local dy = (cg + dx - 1) % #dt + 1
+            local dz = false
+            pcall(function() dz = aj.RequestPlaceEgg(dv, dt[dy]) == true end)
+            if dz then
+                cg = dy + 1
+                dw = true; du = true
                 task.wait(0.25); break
             end
         end
-        if not placed then Hub.markPlotFull(); return placedAny end
-        plotFullUntil = 0
+        if not dw then r.markPlotFull(); return du end
+        ch = 0
     end
-    return placedAny
+    return du
 end
-function Hub.canAutoHatch() return Hub.isOn("AutoOpenReadyEggs") and not carryingEgg end
-function Hub.runAutoOpenReadyEggs()
-    local save = Hub.getSave()
-    local inventory = save and save.EggInventory
-    if typeof(inventory) ~= "table" then return end
-    local hatchedAny = false
-    for uid, egg in pairs(inventory) do
-        if not isRunning or not Hub.isOn("AutoOpenReadyEggs") then return hatchedAny end
-        if typeof(uid) == "string" and typeof(egg) == "table" and egg.Placement ~= nil
-            and Hub.matchesEggFilters(egg, nil, "LifecycleRarities", "LifecycleMutations") then
-            local isReady = false
-            if eggApi.IsLocalEggReady then pcall(function() isReady = eggApi.IsLocalEggReady(uid) == true end) end
-            if isReady and eggApi.RequestHatchEgg then
-                local hatched = false
-                pcall(function() hatched = eggApi.RequestHatchEgg(uid) == true end)
-                if hatched then
-                    hatchedAny = true
-                    if eggApi.RequestCompleteHatchEgg then pcall(eggApi.RequestCompleteHatchEgg, uid) end
+function r.canAutoHatch() return r.isOn("AutoOpenReadyEggs") and not bu end
+function r.runAutoOpenReadyEggs()
+    local dq = r.getSave()
+    local dr = dq and dq.EggInventory
+    if typeof(dr) ~= "table" then return end
+    local ds = false
+    for dt, du in pairs(dr) do
+        if not s or not r.isOn("AutoOpenReadyEggs") then return ds end
+        if typeof(dt) == "string" and typeof(du) == "table" and du.Placement ~= nil
+            and r.matchesEggFilters(du, nil, "LifecycleRarities", "LifecycleMutations") then
+            local dv = false
+            if aj.IsLocalEggReady then pcall(function() dv = aj.IsLocalEggReady(dt) == true end) end
+            if dv and aj.RequestHatchEgg then
+                local dw = false
+                pcall(function() dw = aj.RequestHatchEgg(dt) == true end)
+                if dw then
+                    ds = true
+                    if aj.RequestCompleteHatchEgg then pcall(aj.RequestCompleteHatchEgg, dt) end
                     task.wait(0.35)
                 end
             end
         end
     end
-    return hatchedAny
+    return ds
 end
-function Hub.getPetItemData(serialized)
-    if not assetItemsApi.Deserialize then return nil end
-    local ok, data = pcall(assetItemsApi.Deserialize, serialized)
-    if not ok or typeof(data) ~= "table" then return nil end
-    return data
+function r.getPetItemData(dq)
+    if not an.Deserialize then return nil end
+    local dr, ds = pcall(an.Deserialize, dq)
+    if not dr or typeof(ds) ~= "table" then return nil end
+    return ds
 end
-function Hub.findToolByUid(uid)
-    local containers = { LocalPlayer.Character, LocalPlayer:FindFirstChildOfClass("Backpack") }
-    for _, container in ipairs(containers) do
-        if container then
-            for _, child in ipairs(container:GetChildren()) do
-                if child:IsA("Tool") and child:GetAttribute("UID") == uid then return child end
+function r.findToolByUid(dq)
+    local dr = { m.Character, m:FindFirstChildOfClass("Backpack") }
+    for _, ds in ipairs(dr) do
+        if ds then
+            for _, dt in ipairs(ds:GetChildren()) do
+                if dt:IsA("Tool") and dt:GetAttribute("UID") == dq then return dt end
             end
         end
     end
     return nil
 end
-function Hub.holdUid(uid)
-    local character = LocalPlayer.Character
-    local humanoid = Hub.getHumanoid()
-    if not character or not humanoid then return false end
-    local tool = Hub.findToolByUid(uid)
-    if not tool then return false end
-    if tool.Parent == character then return true end
-    pcall(function() humanoid:EquipTool(tool) end)
-    return Hub.waitFor(1, 0.05, function() return tool.Parent == LocalPlayer.Character end)
+function r.holdUid(dq)
+    local dr = m.Character
+    local ds = r.getHumanoid()
+    if not dr or not ds then return false end
+    local dt = r.findToolByUid(dq)
+    if not dt then return false end
+    if dt.Parent == dr then return true end
+    pcall(function() ds:EquipTool(dt) end)
+    return r.waitFor(1, 0.05, function() return dt.Parent == m.Character end)
 end
-function Hub.sellUid(uid)
-    if not Hub.holdUid(uid) then return false end
-    Hub.netCall(remotes.AssetInventory.SELL_ASSET, uid)
-    return Hub.waitFor(2, 0.1, function()
-        local save = Hub.getSave(); if not save then return false end
-        local pets = save.Inventory or {}
-        local eggs = save.EggInventory or {}
-        return pets[uid] == nil and eggs[uid] == nil
+function r.sellUid(dq)
+    if not r.holdUid(dq) then return false end
+    r.netCall(ap.AssetInventory.SELL_ASSET, dq)
+    return r.waitFor(2, 0.1, function()
+        local dr = r.getSave(); if not dr then return false end
+        local ds = dr.Inventory or {}
+        local dt = dr.EggInventory or {}
+        return ds[dq] == nil and dt[dq] == nil
     end)
 end
-function Hub.getSellablePets()
-    local save = Hub.getSave()
-    local inventory = save and save.Inventory
-    local sellable = {}
-    if typeof(inventory) ~= "table" then return sellable end
-    local equippedAssets = save.EquippedAssets or {}
-    local maxScale = tonumber(Hub.optionValue("SellMaxScale", 10)) or 10
-    local keepMutated = Hub.isOn("SellKeepMutated")
-    local keepEquipped = Hub.isOn("SellKeepEquipped")
-    local mutationsSelected = Hub.multiSelected("SellMutations")
-    local mutationsHasAny = Hub.multiHasAny("SellMutations")
-    local raritiesSelected = Hub.multiSelected("SellRarities")
-    local raritiesHasAny = Hub.multiHasAny("SellRarities")
-    for uid, pet in pairs(inventory) do
-        if typeof(uid) == "string" and typeof(pet) == "table" then
-            local itemData = Hub.getPetItemData(pet)
-            local isEquipped = table.find(equippedAssets, uid) ~= nil
-            local skip = not itemData or itemData.IsFavorite == true or itemData.InFuse == true or (keepEquipped and isEquipped)
-            if not skip then
-                local mutations = Hub.recordMutations(pet)
-                local sellIt = not (keepMutated and #mutations > 0)
-                if sellIt and mutationsHasAny then
-                    sellIt = false
-                    for _, mutation in ipairs(mutations) do
-                        if mutationsSelected[mutation] then sellIt = true; break end
+function r.getSellablePets()
+    local dq = r.getSave()
+    local dr = dq and dq.Inventory
+    local ds = {}
+    if typeof(dr) ~= "table" then return ds end
+    local dt = dq.EquippedAssets or {}
+    local du = tonumber(r.optionValue("SellMaxScale", 10)) or 10
+    local dv = r.isOn("SellKeepMutated")
+    local dw = r.isOn("SellKeepEquipped")
+    local dx = r.multiSelected("SellMutations")
+    local dy = r.multiHasAny("SellMutations")
+    local dz = r.multiSelected("SellRarities")
+    local ea = r.multiHasAny("SellRarities")
+    for eb, ec in pairs(dr) do
+        if typeof(eb) == "string" and typeof(ec) == "table" then
+            local ed = r.getPetItemData(ec)
+            local ee = table.find(dt, eb) ~= nil
+            local ef = not ed or ed.IsFavorite == true or ed.InFuse == true or (dw and ee)
+            if not ef then
+                local eg = r.recordMutations(ec)
+                local eh = not (dv and #eg > 0)
+                if eh and dy then
+                    eh = false
+                    for _, ei in ipairs(eg) do
+                        if dx[ei] then eh = true; break end
                     end
                 end
-                local scale = tonumber(pet.Scale) or 0
-                local rarity = Hub.resolveRarity(pet.Category)
-                local rarityOk = not raritiesHasAny or (typeof(rarity) == "string" and raritiesSelected[rarity] == true)
-                if sellIt and scale <= maxScale and rarityOk then table.insert(sellable, uid) end
+                local ei = tonumber(ec.Scale) or 0
+                local ej = r.resolveRarity(ec.Category)
+                local ek = not ea or (typeof(ej) == "string" and dz[ej] == true)
+                if eh and ei <= du and ek then table.insert(ds, eb) end
             end
         end
     end
-    return sellable
+    return ds
 end
-function Hub.runAutoSellPets()
-    for _, uid in ipairs(Hub.getSellablePets()) do
-        if not isRunning or not Hub.isOn("AutoSellPets") or carryingEgg then return end
-        Hub.sellUid(uid); task.wait(0.15)
+function r.runAutoSellPets()
+    for _, dq in ipairs(r.getSellablePets()) do
+        if not s or not r.isOn("AutoSellPets") or bu then return end
+        r.sellUid(dq); task.wait(0.15)
     end
 end
-function Hub.getSellableEggUids()
-    local save = Hub.getSave()
-    local inventory = save and save.EggInventory
-    local sellable = {}
-    if typeof(inventory) ~= "table" then return sellable end
-    local raritiesHasAny = Hub.multiHasAny("SellEggRarities")
-    local raritiesSelected = Hub.multiSelected("SellEggRarities")
-    for uid, egg in pairs(inventory) do
-        if typeof(uid) == "string" and typeof(egg) == "table" and egg.Placement == nil then
-            local rarity = Hub.resolveRarity(egg.AssetCategory)
-            if not raritiesHasAny or (typeof(rarity) == "string" and raritiesSelected[rarity] == true) then
-                table.insert(sellable, uid)
+function r.getSellableEggUids()
+    local dq = r.getSave()
+    local dr = dq and dq.EggInventory
+    local ds = {}
+    if typeof(dr) ~= "table" then return ds end
+    local dt = r.multiHasAny("SellEggRarities")
+    local du = r.multiSelected("SellEggRarities")
+    for dv, dw in pairs(dr) do
+        if typeof(dv) == "string" and typeof(dw) == "table" and dw.Placement == nil then
+            local dx = r.resolveRarity(dw.AssetCategory)
+            if not dt or (typeof(dx) == "string" and du[dx] == true) then
+                table.insert(ds, dv)
             end
         end
     end
-    return sellable
+    return ds
 end
-function Hub.runAutoSellEggs()
-    for _, uid in ipairs(Hub.getSellableEggUids()) do
-        if not isRunning or not Hub.isOn("AutoSellEggs") or carryingEgg then return end
-        if eggApi.RequestEquipTool then pcall(eggApi.RequestEquipTool, uid) end
+function r.runAutoSellEggs()
+    for _, dq in ipairs(r.getSellableEggUids()) do
+        if not s or not r.isOn("AutoSellEggs") or bu then return end
+        if aj.RequestEquipTool then pcall(aj.RequestEquipTool, dq) end
         task.wait(0.15)
-        Hub.sellUid(uid); task.wait(0.15)
+        r.sellUid(dq); task.wait(0.15)
     end
 end
-function Hub.fuseGroups(save)
-    local inventory = save and save.Inventory
-    local groups = {}
-    if typeof(inventory) ~= "table" then return groups end
-    local equippedAssets = save.EquippedAssets or {}
-    local keepEquipped = Hub.isOn("FuseKeepEquipped")
-    local keepMutated = Hub.isOn("FuseKeepMutated")
-    local maxScale = tonumber(Hub.optionValue("FuseMaxScale", 10)) or 10
-    local mutationsHasAny = Hub.multiHasAny("FuseMutations")
-    local mutationsSelected = Hub.multiSelected("FuseMutations")
-    for uid, pet in pairs(inventory) do
-        if typeof(uid) == "string" and typeof(pet) == "table" then
-            local category = pet.Category
-            local selectable = false
-            if typeof(category) == "string" and fuseApi.CanSelectPet then
-                pcall(function() selectable = fuseApi.CanSelectPet(uid, pet, category, false) == true end)
+function r.fuseGroups(dq)
+    local dr = dq and dq.Inventory
+    local ds = {}
+    if typeof(dr) ~= "table" then return ds end
+    local dt = dq.EquippedAssets or {}
+    local du = r.isOn("FuseKeepEquipped")
+    local dv = r.isOn("FuseKeepMutated")
+    local dw = tonumber(r.optionValue("FuseMaxScale", 10)) or 10
+    local dx = r.multiHasAny("FuseMutations")
+    local dy = r.multiSelected("FuseMutations")
+    for dz, ea in pairs(dr) do
+        if typeof(dz) == "string" and typeof(ea) == "table" then
+            local eb = ea.Category
+            local ec = false
+            if typeof(eb) == "string" and ao.CanSelectPet then
+                pcall(function() ec = ao.CanSelectPet(dz, ea, eb, false) == true end)
             end
-            if selectable and not (keepEquipped and table.find(equippedAssets, uid) ~= nil) then
-                local mutations = Hub.recordMutations(pet)
-                local fuseIt = not (keepMutated and #mutations > 0)
-                if fuseIt and mutationsHasAny then
-                    fuseIt = false
-                    for _, mutation in ipairs(mutations) do
-                        if mutationsSelected[mutation] then fuseIt = true; break end
+            if ec and not (du and table.find(dt, dz) ~= nil) then
+                local ed = r.recordMutations(ea)
+                local ee = not (dv and #ed > 0)
+                if ee and dx then
+                    ee = false
+                    for _, ef in ipairs(ed) do
+                        if dy[ef] then ee = true; break end
                     end
                 end
-                local rarity = Hub.resolveRarity(category)
-                local scale = tonumber(pet.Scale) or 0
-                local rarityOk = rarity == nil or Hub.selectionAllows("FuseRarities", rarity)
-                if fuseIt and scale <= maxScale and rarityOk then
-                    groups[category] = groups[category] or {}
-                    table.insert(groups[category], { uid = uid, scale = scale })
+                local ef = r.resolveRarity(eb)
+                local eg = tonumber(ea.Scale) or 0
+                local eh = ef == nil or r.selectionAllows("FuseRarities", ef)
+                if ee and eg <= dw and eh then
+                    ds[eb] = ds[eb] or {}
+                    table.insert(ds[eb], { uid = dz, scale = eg })
                 end
             end
         end
     end
-    return groups
+    return ds
 end
-function Hub.pickFuseGroup(save)
-    local groups = Hub.fuseGroups(save)
-    local keepPerCategory = math.floor(tonumber(Hub.optionValue("FuseKeepPerCategory", 0)) or 0)
-    local fuseTarget = Hub.optionValue("FuseTarget", "Highest Rarity")
-    local bestGroup, bestScore = nil, -math.huge
-    for category, entries in pairs(groups) do
-        table.sort(entries, function(a, b) return a.scale < b.scale end)
-        if #entries - keepPerCategory >= 3 then
-            local baseRarity = RARITY_RANK[Hub.resolveRarity(category) or "Common"] or 0
-            local score = baseRarity
-            if fuseTarget == "Most Duplicates" then score = #entries
-            elseif fuseTarget == "Lowest Rarity" then score = -baseRarity end
-            if score > bestScore then bestGroup = category; bestScore = score end
+function r.pickFuseGroup(dq)
+    local dr = r.fuseGroups(dq)
+    local ds = math.floor(tonumber(r.optionValue("FuseKeepPerCategory", 0)) or 0)
+    local dt = r.optionValue("FuseTarget", "Highest Rarity")
+    local du, dv = nil, -math.huge
+    for dw, dx in pairs(dr) do
+        table.sort(dx, function(dy, dz) return dy.scale < dz.scale end)
+        if #dx - ds >= 3 then
+            local dy = au[r.resolveRarity(dw) or "Common"] or 0
+            local dz = dy
+            if dt == "Most Duplicates" then dz = #dx
+            elseif dt == "Lowest Rarity" then dz = -dy end
+            if dz > dv then du = dw; dv = dz end
         end
     end
-    if not bestGroup then return nil end
-    local entries = groups[bestGroup]
-    return { entries[1].uid, entries[2].uid, entries[3].uid }
+    if not du then return nil end
+    local dw = dr[du]
+    return { dw[1].uid, dw[2].uid, dw[3].uid }
 end
-function Hub.fusePrice(save, uids)
-    local inventory = save and save.Inventory
-    if typeof(inventory) ~= "table" or not fuseApi.CalculateFusePrice then return nil end
-    local data = {}
-    for i, uid in ipairs(uids) do
-        local pet = inventory[uid]
-        local itemData = pet and Hub.getPetItemData(pet)
-        if not itemData then return nil end
-        data[i] = itemData
+function r.fusePrice(dq, dr)
+    local ds = dq and dq.Inventory
+    if typeof(ds) ~= "table" or not ao.CalculateFusePrice then return nil end
+    local dt = {}
+    for du, dv in ipairs(dr) do
+        local dw = ds[dv]
+        local dx = dw and r.getPetItemData(dw)
+        if not dx then return nil end
+        dt[du] = dx
     end
-    local ok, price = pcall(fuseApi.CalculateFusePrice, data)
-    return ok and tonumber(price) or nil
+    local du, dv = pcall(ao.CalculateFusePrice, dt)
+    return du and tonumber(dv) or nil
 end
-function Hub.getFuseMachinePosition()
-    local objects = Workspace:FindFirstChild("__OBJECTS")
-    local machines = objects and objects:FindFirstChild("Machines")
-    local fuseMachine = machines and machines:FindFirstChild("FuseMachine")
-    if not fuseMachine then return nil end
-    local ok, pivot = pcall(function() return fuseMachine:GetPivot() end)
-    if not ok or not pivot then return nil end
-    return pivot.Position + Vector3.new(0, 4, 0)
+function r.getFuseMachinePosition()
+    local dq = h:FindFirstChild("__OBJECTS")
+    local dr = dq and dq:FindFirstChild("Machines")
+    local ds = dr and dr:FindFirstChild("FuseMachine")
+    if not ds then return nil end
+    local dt, du = pcall(function() return ds:GetPivot() end)
+    if not dt or not du then return nil end
+    return du.Position + Vector3.new(0, 4, 0)
 end
-function Hub.runAutoFusePets(force)
-    local save = Hub.getSave(); if not save then return end
-    local function keepEnabled() return force == true or Hub.isOn("AutoFusePets") end
-    if save.FusionLocked == true then
-        if Hub.isOn("FuseAutoReveal") or force == true then Hub.netInvoke(remotes.FuseMachine.COMPLETE_REVEAL) end
+function r.runAutoFusePets(dq)
+    local dr = r.getSave(); if not dr then return end
+    local function ds() return dq == true or r.isOn("AutoFusePets") end
+    if dr.FusionLocked == true then
+        if r.isOn("FuseAutoReveal") or dq == true then r.netInvoke(ap.FuseMachine.COMPLETE_REVEAL) end
         return
     end
-    local uids = Hub.pickFuseGroup(save)
-    if not uids then return end
-    local price = Hub.fusePrice(save, uids)
-    if price and (tonumber(save.Money) or 0) < price then return end
-    local machinePosition = Hub.getFuseMachinePosition()
-    if machinePosition and not Hub.bypassMoveTo(machinePosition, keepEnabled, Hub.bypassSpeed()) then return end
-    if save.FusionInfoAcknowledged ~= true then Hub.netInvoke(remotes.FuseMachine.ACKNOWLEDGE_INFO) end
-    for _, uid in ipairs(uids) do
-        if not isRunning or not keepEnabled() then return end
-        Hub.netInvoke(remotes.FuseMachine.INSERT_MOB, uid)
+    local dt = r.pickFuseGroup(dr)
+    if not dt then return end
+    local du = r.fusePrice(dr, dt)
+    if du and (tonumber(dr.Money) or 0) < du then return end
+    local dv = r.getFuseMachinePosition()
+    if dv and not r.bypassMoveTo(dv, ds, r.bypassSpeed()) then return end
+    if dr.FusionInfoAcknowledged ~= true then r.netInvoke(ap.FuseMachine.ACKNOWLEDGE_INFO) end
+    for _, dw in ipairs(dt) do
+        if not s or not ds() then return end
+        r.netInvoke(ap.FuseMachine.INSERT_MOB, dw)
         task.wait(0.2)
     end
-    Hub.netInvoke(remotes.FuseMachine.START_FUSE)
+    r.netInvoke(ap.FuseMachine.START_FUSE)
     return true
 end
-function Hub.runAutoEquipBest()
-    local now = Workspace:GetServerTimeNow()
-    if now - lastEquipBestAt < 5 then return end
-    lastEquipBestAt = now
-    Hub.netCall(remotes.Backpack.EQUIP_BEST)
+function r.runAutoEquipBest()
+    local dq = h:GetServerTimeNow()
+    if dq - cf < 5 then return end
+    cf = dq
+    r.netCall(ap.Backpack.EQUIP_BEST)
 end
-function Hub.runAutoEquipBestTrail()
-    local save = Hub.getSave()
-    local trailInventory = save and save.TrailInventory
-    if typeof(trailInventory) ~= "table" then return false end
-    local bestId, bestScore = nil, -1
-    for _, trailName in ipairs(trailNames) do
-        local trailId = trailIdByName[trailName]
-        if trailId and trailInventory[trailId] then
-            local score = trailPriceByName[trailName] or 0
-            if score > bestScore then bestScore = score; bestId = trailId end
+function r.runAutoEquipBestTrail()
+    local dq = r.getSave()
+    local dr = dq and dq.TrailInventory
+    if typeof(dr) ~= "table" then return false end
+    local ds, dt = nil, -1
+    for _, du in ipairs(be) do
+        local dv = bf[du]
+        if dv and dr[dv] then
+            local dw = bg[du] or 0
+            if dw > dt then dt = dw; ds = dv end
         end
     end
-    local wornSnapshot = Hub.netInvoke(remotes.Trails.WORN_SNAPSHOT)
-    local worn = typeof(wornSnapshot) == "table" and wornSnapshot[tostring(LocalPlayer.UserId)] or nil
-    if not bestId or worn == bestId then return false end
-    Hub.netInvoke(remotes.Trails.REQUEST_SELECT, bestId)
+    local du = r.netInvoke(ap.Trails.WORN_SNAPSHOT)
+    local dv = typeof(du) == "table" and du[tostring(m.UserId)] or nil
+    if not ds or dv == ds then return false end
+    r.netInvoke(ap.Trails.REQUEST_SELECT, ds)
     return true
 end
-function Hub.gearBaseName(name) return tostring(name):gsub("%s*%[X%d+%]%s*$", "") end
-function Hub.runAutoEquipBestGear()
-    local character = LocalPlayer.Character
-    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-    local humanoid = Hub.getHumanoid()
-    if not character or not backpack or not humanoid then return end
-    local bestTool, bestScore = nil, -1
-    for _, tool in ipairs(backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            local score = gearPriceByName[Hub.gearBaseName(tool.Name)]
-            if score and score > bestScore then bestScore = score; bestTool = tool end
+function r.gearBaseName(dq) return tostring(dq):gsub("%s*%[X%d+%]%s*$", "") end
+function r.runAutoEquipBestGear()
+    local dq = m.Character
+    local dr = m:FindFirstChildOfClass("Backpack")
+    local ds = r.getHumanoid()
+    if not dq or not dr or not ds then return end
+    local dt, du = nil, -1
+    for _, dv in ipairs(dr:GetChildren()) do
+        if dv:IsA("Tool") then
+            local dw = bh[r.gearBaseName(dv.Name)]
+            if dw and dw > du then du = dw; dt = dv end
         end
     end
-    for _, tool in ipairs(character:GetChildren()) do
-        if tool:IsA("Tool") then
-            local score = gearPriceByName[Hub.gearBaseName(tool.Name)]
-            if score and score >= bestScore then return end
+    for _, dv in ipairs(dq:GetChildren()) do
+        if dv:IsA("Tool") then
+            local dw = bh[r.gearBaseName(dv.Name)]
+            if dw and dw >= du then return end
         end
     end
-    if bestTool then pcall(function() humanoid:EquipTool(bestTool) end) end
+    if dt then pcall(function() ds:EquipTool(dt) end) end
 end
-function Hub.runAutoBuyTrail()
-    local save = Hub.getSave()
-    if not save or not Hub.multiHasAny("TrailWanted") then return false end
-    local wanted = Hub.multiSelected("TrailWanted")
-    local trailInventory = save.TrailInventory or {}
-    local boughtAny = false
-    for _, trailName in ipairs(trailNames) do
-        if wanted[trailName] then
-            local trailId = trailIdByName[trailName]
-            if trailId and not trailInventory[trailId] then
-                local price = trailPriceByName[trailName] or 0
-                if save.Money >= price then
-                    Hub.netCall(remotes.Trails.REQUEST_PURCHASE, trailId)
-                    boughtAny = true; task.wait(0.35)
-                    save = Hub.getSave() or save
-                    trailInventory = save.TrailInventory or trailInventory
+function r.runAutoBuyTrail()
+    local dq = r.getSave()
+    if not dq or not r.multiHasAny("TrailWanted") then return false end
+    local dr = r.multiSelected("TrailWanted")
+    local ds = dq.TrailInventory or {}
+    local dt = false
+    for _, du in ipairs(be) do
+        if dr[du] then
+            local dv = bf[du]
+            if dv and not ds[dv] then
+                local dw = bg[du] or 0
+                if dq.Money >= dw then
+                    r.netCall(ap.Trails.REQUEST_PURCHASE, dv)
+                    dt = true; task.wait(0.35)
+                    dq = r.getSave() or dq
+                    ds = dq.TrailInventory or ds
                 end
             end
         end
     end
-    return boughtAny
+    return dt
 end
-function Hub.runAutoUpgrades()
-    local upgradeSelection = Hub.multiSelected("UpgradeTypes")
-    if not Hub.multiHasAny("UpgradeTypes") then upgradeSelection = { Base = true, Treadmill = true } end
-    local save = Hub.getSave(); if not save then return false end
-    local upgraded = false
-    if upgradeSelection.Base and baseUpgradeModule and typeof(baseUpgradeModule.IsNextTierAffordable) == "function" then
-        if baseUpgradeModule.IsNextTierAffordable(save) then
-            Hub.netCall(remotes.Plots.REQUEST_BASE_UPGRADE)
-            upgraded = true; task.wait(0.35)
+function r.runAutoUpgrades()
+    local dq = r.multiSelected("UpgradeTypes")
+    if not r.multiHasAny("UpgradeTypes") then dq = { Base = true, Treadmill = true } end
+    local dr = r.getSave(); if not dr then return false end
+    local ds = false
+    if dq.Base and v and typeof(v.IsNextTierAffordable) == "function" then
+        if v.IsNextTierAffordable(dr) then
+            r.netCall(ap.Plots.REQUEST_BASE_UPGRADE)
+            ds = true; task.wait(0.35)
         end
     end
-    if upgradeSelection.Treadmill and treadmillsModule and typeof(treadmillsModule.GetByUpgradeLevel) == "function" then
-        local currentLevel = tonumber(save.TreadmillUpgradeLevel) or 0
-        local nextTier = treadmillsModule.GetByUpgradeLevel(currentLevel + 1)
-        if nextTier then
-            local price = tonumber(nextTier.Price) or math.huge
-            if save.Money >= price then
-                Hub.netCall(remotes.Treadmills.REQUEST_UPGRADE, nextTier._id)
-                upgraded = true; task.wait(0.35)
+    if dq.Treadmill and ab and typeof(ab.GetByUpgradeLevel) == "function" then
+        local dt = tonumber(dr.TreadmillUpgradeLevel) or 0
+        local du = ab.GetByUpgradeLevel(dt + 1)
+        if du then
+            local dv = tonumber(du.Price) or math.huge
+            if dr.Money >= dv then
+                r.netCall(ap.Treadmills.REQUEST_UPGRADE, du._id)
+                ds = true; task.wait(0.35)
             end
         end
     end
-    return upgraded
+    return ds
 end
-function Hub.runAutoClaimIndex() Hub.netCall(remotes.Index.REQUEST_CLAIM_ALL) end
-function Hub.runClaimOfflineEarnings()
-    local summary = Hub.netInvoke(remotes.OfflineAssets.GET_SUMMARY)
-    if typeof(summary) ~= "table" then return false end
-    if (tonumber(summary.ClaimableAmount) or 0) <= 0 then return false end
-    Hub.netCall(remotes.OfflineAssets.REQUEST_REDEEM)
+function r.runAutoClaimIndex() r.netCall(ap.Index.REQUEST_CLAIM_ALL) end
+function r.runClaimOfflineEarnings()
+    local dq = r.netInvoke(ap.OfflineAssets.GET_SUMMARY)
+    if typeof(dq) ~= "table" then return false end
+    if (tonumber(dq.ClaimableAmount) or 0) <= 0 then return false end
+    r.netCall(ap.OfflineAssets.REQUEST_REDEEM)
     return true
 end
-function Hub.runAutoClaimGroupReward()
-    local save = Hub.getSave()
-    if save and save.ClaimedGroupReward == true then return false end
-    local inGroup = false
+function r.runAutoClaimGroupReward()
+    local dq = r.getSave()
+    if dq and dq.ClaimedGroupReward == true then return false end
+    local dr = false
     pcall(function()
-        inGroup = constantsModule and constantsModule.GROUP_ID and LocalPlayer:IsInGroupAsync(constantsModule.GROUP_ID) == true
+        dr = u and u.GROUP_ID and m:IsInGroupAsync(u.GROUP_ID) == true
     end)
-    Hub.netInvoke(remotes.GroupReward.CLAIM_REWARD, inGroup)
+    r.netInvoke(ap.GroupReward.CLAIM_REWARD, dr)
     return true
 end
-function Hub.deleteOwnPetRenders()
-    local clientRendered = Workspace:FindFirstChild("ClientRenderedAssets")
-    if not clientRendered then return end
-    for _, render in ipairs(clientRendered:GetChildren()) do
-        if render:GetAttribute("OwnerUserId") == LocalPlayer.UserId then pcall(function() render:Destroy() end) end
+function r.deleteOwnPetRenders()
+    local dq = h:FindFirstChild("ClientRenderedAssets")
+    if not dq then return end
+    for _, dr in ipairs(dq:GetChildren()) do
+        if dr:GetAttribute("OwnerUserId") == m.UserId then pcall(function() dr:Destroy() end) end
     end
 end
-function Hub.getTreadmillStand()
-    if not plotApi.GetPlotData then return nil end
-    local plotData = plotApi.GetPlotData()
-    local plotFolder = plotData and plotData.PlotFolder
-    local treadmillBottom = plotFolder and plotFolder:FindFirstChild("TreadmillBottom")
-    if not treadmillBottom or not treadmillBottom:IsA("BasePart") then return nil end
-    return treadmillBottom.Position + Vector3.new(0, 4, 0)
+function r.getTreadmillStand()
+    if not ak.GetPlotData then return nil end
+    local dq = ak.GetPlotData()
+    local dr = dq and dq.PlotFolder
+    local ds = dr and dr:FindFirstChild("TreadmillBottom")
+    if not ds or not ds:IsA("BasePart") then return nil end
+    return ds.Position + Vector3.new(0, 4, 0)
 end
-function Hub.isDoubleSpeedVisible()
-    local ok, visible = pcall(function()
-        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-        local elements = playerGui and playerGui:FindFirstChild("Elements")
-        local left = elements and elements:FindFirstChild("Left")
-        local tools = left and left:FindFirstChild("Tools")
-        local doubleSpeed = tools and tools:FindFirstChild("DoubleYourSpeed")
-        return doubleSpeed ~= nil and doubleSpeed.Visible == true
+function r.isDoubleSpeedVisible()
+    local dq, dr = pcall(function()
+        local ds = m:FindFirstChild("PlayerGui")
+        local dt = ds and ds:FindFirstChild("Elements")
+        local du = dt and dt:FindFirstChild("Left")
+        local dv = du and du:FindFirstChild("Tools")
+        local dw = dv and dv:FindFirstChild("DoubleYourSpeed")
+        return dw ~= nil and dw.Visible == true
     end)
-    return ok and visible == true
+    return dq and dr == true
 end
-function Hub.dismountTreadmill()
+function r.dismountTreadmill()
     pcall(function()
-        local inputService = game:GetService("VirtualInputManager")
-        inputService:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+        local dq = game:GetService("VirtualInputManager")
+        dq:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
         task.wait(0.05)
-        inputService:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+        dq:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
     end)
-    local humanoid = Hub.getHumanoid()
-    if humanoid then humanoid.Jump = true; humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+    local dq = r.getHumanoid()
+    if dq then dq.Jump = true; dq:ChangeState(Enum.HumanoidStateType.Jumping) end
 end
-function Hub.stopTreadmillTraining()
-    treadmillTraining = false
-    pcall(function() Hub.netInvoke(remotes.Treadmills.REQUEST_UNEQUIP) end)
-    if Hub.isDoubleSpeedVisible() then
-        Hub.dismountTreadmill(); task.wait(0.1)
-        if Hub.isDoubleSpeedVisible() then Hub.dismountTreadmill() end
+function r.stopTreadmillTraining()
+    bz = false
+    pcall(function() r.netInvoke(ap.Treadmills.REQUEST_UNEQUIP) end)
+    if r.isDoubleSpeedVisible() then
+        r.dismountTreadmill(); task.wait(0.1)
+        if r.isDoubleSpeedVisible() then r.dismountTreadmill() end
     end
 end
-function Hub.canAutoTreadmill() return Hub.isOn("AutoTreadmill") and not carryingEgg end
-function Hub.runAutoTreadmillTraining()
-    local standPosition = Hub.getTreadmillStand()
-    if not standPosition then return end
-    local root = Hub.getRoot(); if not root then return end
-    if (root.Position - standPosition).Magnitude > 12 then
-        if not Hub.bypassMoveTo(standPosition, nil, Hub.bypassSpeed()) then return end
+function r.canAutoTreadmill() return r.isOn("AutoTreadmill") and not bu end
+function r.runAutoTreadmillTraining()
+    local dq = r.getTreadmillStand()
+    if not dq then return end
+    local dr = r.getRoot(); if not dr then return end
+    if (dr.Position - dq).Magnitude > 12 then
+        if not r.bypassMoveTo(dq, nil, r.bypassSpeed()) then return end
     end
-    Hub.netInvoke(remotes.Treadmills.REQUEST_EQUIP_STATIC)
-    treadmillTraining = true
+    r.netInvoke(ap.Treadmills.REQUEST_EQUIP_STATIC)
+    bz = true
     return true
 end
 
-local waypointNames = { "Base", "Pet Area", "Treadmill", "Fuse Machine", "Lobby Entry" }
-for _, zoneId in ipairs(FALLBACK_AREAS) do table.insert(waypointNames, zoneId) end
-function Hub.resolveWaypoint(name)
-    if typeof(name) ~= "string" then return nil end
-    if name == "Base" then return Hub.getBasePosition()
-    elseif name == "Pet Area" then return Hub.getPetAreaStandPosition()
-    elseif name == "Treadmill" then return Hub.getTreadmillStand()
-    elseif name == "Fuse Machine" then return Hub.getFuseMachinePosition()
-    elseif name == "Lobby Entry" then return Hub.getEntryPosition() end
-    return Hub.getZoneLaneCenter(name)
+local dq = { "Base", "Pet Area", "Treadmill", "Fuse Machine", "Lobby Entry" }
+for _, dr in ipairs(bc) do table.insert(dq, dr) end
+function r.resolveWaypoint(dr)
+    if typeof(dr) ~= "string" then return nil end
+    if dr == "Base" then return r.getBasePosition()
+    elseif dr == "Pet Area" then return r.getPetAreaStandPosition()
+    elseif dr == "Treadmill" then return r.getTreadmillStand()
+    elseif dr == "Fuse Machine" then return r.getFuseMachinePosition()
+    elseif dr == "Lobby Entry" then return r.getEntryPosition() end
+    return r.getZoneLaneCenter(dr)
 end
 
 -- ============================================================
 -- ESP
 -- ============================================================
-function Hub.espDistanceLimit() return tonumber(Hub.optionValue("EspDistance", 2000)) or 2000 end
-function Hub.withinEspRange(position)
-    local root = Hub.getRoot()
-    return root ~= nil and (root.Position - position).Magnitude <= Hub.espDistanceLimit()
+function r.espDistanceLimit() return tonumber(r.optionValue("EspDistance", 2000)) or 2000 end
+function r.withinEspRange(dr)
+    local ds = r.getRoot()
+    return ds ~= nil and (ds.Position - dr).Magnitude <= r.espDistanceLimit()
 end
-function Hub.espColorFor(rarity)
-    local rank = RARITY_RANK[rarity or ""] or 0
-    if rank >= 9 then return Color3.fromRGB(255, 120, 255)
-    elseif rank >= 7 then return Color3.fromRGB(255, 90, 90)
-    elseif rank >= 5 then return Color3.fromRGB(255, 190, 80)
-    elseif rank >= 3 then return Color3.fromRGB(110, 195, 255) end
+function r.espColorFor(dr)
+    local ds = au[dr or ""] or 0
+    if ds >= 9 then return Color3.fromRGB(255, 120, 255)
+    elseif ds >= 7 then return Color3.fromRGB(255, 90, 90)
+    elseif ds >= 5 then return Color3.fromRGB(255, 190, 80)
+    elseif ds >= 3 then return Color3.fromRGB(110, 195, 255) end
     return Color3.fromRGB(190, 200, 215)
 end
-function Hub.ensureEspEntry(key, color)
-    local entry = espObjects[key]
-    if entry then return entry end
-    local anchor = Instance.new("Part")
-    anchor.Name = "EspAnchor"; anchor.Anchored = true; anchor.CanCollide = false
-    anchor.CanQuery = false; anchor.CanTouch = false; anchor.Transparency = 1
-    anchor.Size = Vector3.new(0.2, 0.2, 0.2); anchor.Parent = espFolder
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "EspLabel"; billboard.AlwaysOnTop = true
-    billboard.Size = UDim2.fromOffset(220, 34); billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-    billboard.Adornee = anchor; billboard.Parent = anchor
-    local label = Instance.new("TextLabel")
-    label.Name = "Text"; label.BackgroundTransparency = 1; label.Size = UDim2.fromScale(1, 1)
-    label.Font = Enum.Font.GothamBold; label.TextSize = 13; label.TextStrokeTransparency = 0.4
-    label.TextColor3 = color; label.Parent = billboard
-    entry = { anchor = anchor, billboard = billboard, label = label, highlight = nil }
-    espObjects[key] = entry
-    return entry
+function r.ensureEspEntry(dr, ds)
+    local dt = db[dr]
+    if dt then return dt end
+    local du = Instance.new("Part")
+    du.Name = "EspAnchor"; du.Anchored = true; du.CanCollide = false
+    du.CanQuery = false; du.CanTouch = false; du.Transparency = 1
+    du.Size = Vector3.new(0.2, 0.2, 0.2); du.Parent = dh
+    local dv = Instance.new("BillboardGui")
+    dv.Name = "EspLabel"; dv.AlwaysOnTop = true
+    dv.Size = UDim2.fromOffset(220, 34); dv.StudsOffset = Vector3.new(0, 2.5, 0)
+    dv.Adornee = du; dv.Parent = du
+    local dw = Instance.new("TextLabel")
+    dw.Name = "Text"; dw.BackgroundTransparency = 1; dw.Size = UDim2.fromScale(1, 1)
+    dw.Font = Enum.Font.GothamBold; dw.TextSize = 13; dw.TextStrokeTransparency = 0.4
+    dw.TextColor3 = ds; dw.Parent = dv
+    local dx = { anchor = du, billboard = dv, label = dw, highlight = nil }
+    db[dr] = dx
+    return dx
 end
-function Hub.drawEspAt(key, position, text, color, highlightTarget)
-    local entry = Hub.ensureEspEntry(key, color)
-    entry.anchor.CFrame = CFrame.new(position)
-    entry.label.Text = text; entry.label.TextColor3 = color
-    if highlightTarget and highlightTarget.Parent then
-        if not entry.highlight then
-            local highlight = Instance.new("Highlight")
-            highlight.FillTransparency = 0.6; highlight.OutlineTransparency = 0
-            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            highlight.Parent = espFolder; entry.highlight = highlight
+function r.drawEspAt(dr, ds, dt, du, dv)
+    local dw = r.ensureEspEntry(dr, du)
+    dw.anchor.CFrame = CFrame.new(ds)
+    dw.label.Text = dt; dw.label.TextColor3 = du
+    if dv and dv.Parent then
+        if not dw.highlight then
+            local dx = Instance.new("Highlight")
+            dx.FillTransparency = 0.6; dx.OutlineTransparency = 0
+            dx.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            dx.Parent = dh; dw.highlight = dx
         end
-        entry.highlight.Adornee = highlightTarget
-        entry.highlight.FillColor = color; entry.highlight.OutlineColor = color
-    elseif entry.highlight then entry.highlight:Destroy(); entry.highlight = nil end
-    espDrawnKeys[key] = true
+        dw.highlight.Adornee = dv
+        dw.highlight.FillColor = du; dw.highlight.OutlineColor = du
+    elseif dw.highlight then dw.highlight:Destroy(); dw.highlight = nil end
+    dc[dr] = true
 end
-function Hub.releaseEsp(key)
-    local entry = espObjects[key]; if not entry then return end
-    if entry.highlight then entry.highlight:Destroy() end
-    if entry.billboard then entry.billboard:Destroy() end
-    if entry.anchor then entry.anchor:Destroy() end
-    espObjects[key] = nil
+function r.releaseEsp(dr)
+    local ds = db[dr]; if not ds then return end
+    if ds.highlight then ds.highlight:Destroy() end
+    if ds.billboard then ds.billboard:Destroy() end
+    if ds.anchor then ds.anchor:Destroy() end
+    db[dr] = nil
 end
-function Hub.clearAllEsp() for key in pairs(espObjects) do Hub.releaseEsp(key) end end
-function Hub.collectEggEsp()
-    local showWorldEggs = Hub.isOn("EspWorldEggs")
-    local showCarriedEggs = Hub.isOn("EspCarriedEggs")
-    if not showWorldEggs and not showCarriedEggs then return end
-    for _, record in ipairs(Hub.getAreaEggs()) do
-        local frame = record.BottomCFrame or record.BoundsCFrame
-        if frame then
-            local state = record.State
-            local visible = (state == "Slot" and showWorldEggs) or ((state == "Dropped" or state == "Carried") and showCarriedEggs)
-            if visible and Hub.withinEspRange(frame.Position) then
-                local rarity = Hub.resolveRarity(record.AssetCategory)
-                local text = string.format("%s [%s]", Hub.assetName(record.AssetCategory), tostring(rarity or "?"))
-                if state == "Dropped" or state == "Carried" then text = string.format("%s\n%s", text, tostring(state)) end
-                Hub.drawEspAt("egg_" .. record.Uid, frame.Position, text, Hub.espColorFor(rarity), nil)
+function r.clearAllEsp() for dr in pairs(db) do r.releaseEsp(dr) end end
+function r.collectEggEsp()
+    local dr = r.isOn("EspWorldEggs")
+    local ds = r.isOn("EspCarriedEggs")
+    if not dr and not ds then return end
+    for _, dt in ipairs(r.getAreaEggs()) do
+        local du = dt.BottomCFrame or dt.BoundsCFrame
+        if du then
+            local dv = dt.State
+            local dw = (dv == "Slot" and dr) or ((dv == "Dropped" or dv == "Carried") and ds)
+            if dw and r.withinEspRange(du.Position) then
+                local dx = r.resolveRarity(dt.AssetCategory)
+                local dy = string.format("%s [%s]", r.assetName(dt.AssetCategory), tostring(dx or "?"))
+                if dv == "Dropped" or dv == "Carried" then dy = string.format("%s\n%s", dy, tostring(dv)) end
+                r.drawEspAt("egg_" .. dt.Uid, du.Position, dy, r.espColorFor(dx), nil)
             end
         end
     end
 end
-function Hub.collectGuardEsp()
-    if not Hub.isOn("EspGuards") or not guardAreasFolder then return end
-    for _, area in ipairs(guardAreasFolder:GetChildren()) do
-        local guard = area:FindFirstChild("Guard")
-        local ok, pivot = pcall(function() return guard and guard:GetPivot() or nil end)
-        if ok and pivot and Hub.withinEspRange(pivot.Position) then
-            Hub.drawEspAt("guard_" .. area.Name, pivot.Position,
-                string.format("Guard %s\n%s", area.Name, tostring(guard:GetAttribute("GuardState") or "Idle")),
-                Color3.fromRGB(255, 140, 90), guard)
+function r.collectGuardEsp()
+    if not r.isOn("EspGuards") or not df then return end
+    for _, dr in ipairs(df:GetChildren()) do
+        local ds = dr:FindFirstChild("Guard")
+        local dt, du = pcall(function() return ds and ds:GetPivot() or nil end)
+        if dt and du and r.withinEspRange(du.Position) then
+            r.drawEspAt("guard_" .. dr.Name, du.Position,
+                string.format("Guard %s\n%s", dr.Name, tostring(ds:GetAttribute("GuardState") or "Idle")),
+                Color3.fromRGB(255, 140, 90), ds)
         end
     end
 end
-function Hub.collectPetEsp()
-    if not Hub.isOn("EspPets") then return end
-    local clientRendered = Workspace:FindFirstChild("ClientRenderedAssets")
-    if not clientRendered then return end
-    local save = Hub.getSave()
-    local inventory = save and save.Inventory or {}
-    local ownerByUid = {}
+function r.collectPetEsp()
+    if not r.isOn("EspPets") then return end
+    local dr = h:FindFirstChild("ClientRenderedAssets")
+    if not dr then return end
+    local ds = r.getSave()
+    local dt = ds and ds.Inventory or {}
+    local du = {}
     pcall(function()
-        if rosterApi.GetRuntimeSnapshot then
-            local snapshot = rosterApi.GetRuntimeSnapshot() or {}
-            for _, group in pairs(snapshot) do
-                if typeof(group) == "table" and typeof(group.Records) == "table" then
-                    for uid, info in pairs(group.Records) do ownerByUid[uid] = info end
+        if am.GetRuntimeSnapshot then
+            local dv = am.GetRuntimeSnapshot() or {}
+            for _, dw in pairs(dv) do
+                if typeof(dw) == "table" and typeof(dw.Records) == "table" then
+                    for dx, dy in pairs(dw.Records) do du[dx] = dy end
                 end
             end
         end
     end)
-    for _, render in ipairs(clientRendered:GetChildren()) do
-        local uid = render:GetAttribute("UID")
-        local ok, pivot = pcall(function() return render:GetPivot() end)
-        if typeof(uid) == "string" and ok and pivot and Hub.withinEspRange(pivot.Position) then
-            local category, earnings = nil, nil
-            local savedPet = inventory[uid]
-            if typeof(savedPet) == "table" then category = savedPet.Category end
-            local info = ownerByUid[uid]
-            if typeof(info) == "table" then
-                if not category and info.ItemData then category = info.ItemData.Category end
-                earnings = tonumber(info.MoneyPerSecond)
+    for _, dv in ipairs(dr:GetChildren()) do
+        local dw = dv:GetAttribute("UID")
+        local dx, dy = pcall(function() return dv:GetPivot() end)
+        if typeof(dw) == "string" and dx and dy and r.withinEspRange(dy.Position) then
+            local dz, ea = nil, nil
+            local eb = dt[dw]
+            if typeof(eb) == "table" then dz = eb.Category end
+            local ec = du[dw]
+            if typeof(ec) == "table" then
+                if not dz and ec.ItemData then dz = ec.ItemData.Category end
+                ea = tonumber(ec.MoneyPerSecond)
             end
-            local rarity = Hub.resolveRarity(category)
-            local text = string.format("%s [%s]", Hub.assetName(category), tostring(rarity or "?"))
-            if earnings then text = string.format("%s\n%s/s", text, Hub.formatNumber(earnings)) end
-            Hub.drawEspAt("pet_" .. render.Name, pivot.Position, text, Hub.espColorFor(rarity), render)
+            local ed = r.resolveRarity(dz)
+            local ee = string.format("%s [%s]", r.assetName(dz), tostring(ed or "?"))
+            if ea then ee = string.format("%s\n%s/s", ee, r.formatNumber(ea)) end
+            r.drawEspAt("pet_" .. dv.Name, dy.Position, ee, r.espColorFor(ed), dv)
         end
     end
 end
-function Hub.collectPlayerEsp()
-    if not Hub.isOn("EspPlayers") then return end
-    local root = Hub.getRoot()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local character = player.Character
-            local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-            if humanoidRootPart and Hub.withinEspRange(humanoidRootPart.Position) then
-                local distance = root and (root.Position - humanoidRootPart.Position).Magnitude or 0
-                Hub.drawEspAt("player_" .. player.Name, humanoidRootPart.Position,
-                    string.format("%s\n%d studs", player.DisplayName, math.floor(distance)),
-                    Color3.fromRGB(120, 190, 255), character)
+function r.collectPlayerEsp()
+    if not r.isOn("EspPlayers") then return end
+    local dr = r.getRoot()
+    for _, ds in ipairs(b:GetPlayers()) do
+        if ds ~= m then
+            local dt = ds.Character
+            local du = dt and dt:FindFirstChild("HumanoidRootPart")
+            if du and r.withinEspRange(du.Position) then
+                local dv = dr and (dr.Position - du.Position).Magnitude or 0
+                r.drawEspAt("player_" .. ds.Name, du.Position,
+                    string.format("%s\n%d studs", ds.DisplayName, math.floor(dv)),
+                    Color3.fromRGB(120, 190, 255), dt)
             end
         end
     end
 end
-function Hub.collectMachineEsp()
-    if not Hub.isOn("EspMachines") then return end
-    local objects = Workspace:FindFirstChild("__OBJECTS")
-    local machines = objects and objects:FindFirstChild("Machines")
-    if not machines then return end
-    for _, machine in ipairs(machines:GetChildren()) do
-        local ok, pivot = pcall(function() return machine:GetPivot() end)
-        if ok and pivot and Hub.withinEspRange(pivot.Position) then
-            Hub.drawEspAt("machine_" .. machine.Name, pivot.Position, machine.Name, Color3.fromRGB(230, 200, 120), machine)
+function r.collectMachineEsp()
+    if not r.isOn("EspMachines") then return end
+    local dr = h:FindFirstChild("__OBJECTS")
+    local ds = dr and dr:FindFirstChild("Machines")
+    if not ds then return end
+    for _, dt in ipairs(ds:GetChildren()) do
+        local du, dv = pcall(function() return dt:GetPivot() end)
+        if du and dv and r.withinEspRange(dv.Position) then
+            r.drawEspAt("machine_" .. dt.Name, dv.Position, dt.Name, Color3.fromRGB(230, 200, 120), dt)
         end
     end
 end
-function Hub.collectPlotEsp()
-    if not Hub.isOn("EspPlots") then return end
-    local plots = Workspace:FindFirstChild("Plots")
-    if not plots then return end
-    for _, plot in ipairs(plots:GetChildren()) do
-        local sign = plot:FindFirstChild("PlotSign") or plot:FindFirstChild("CenterPoint")
-        if sign and sign:IsA("BasePart") and Hub.withinEspRange(sign.Position) then
-            local ownerId = nil
+function r.collectPlotEsp()
+    if not r.isOn("EspPlots") then return end
+    local dr = h:FindFirstChild("Plots")
+    if not dr then return end
+    for _, ds in ipairs(dr:GetChildren()) do
+        local dt = ds:FindFirstChild("PlotSign") or ds:FindFirstChild("CenterPoint")
+        if dt and dt:IsA("BasePart") and r.withinEspRange(dt.Position) then
+            local du = nil
             pcall(function()
-                if plotApi.GetSlotOwner then ownerId = plotApi.GetSlotOwner(tonumber(plot.Name)) end
+                if ak.GetSlotOwner then du = ak.GetSlotOwner(tonumber(ds.Name)) end
             end)
-            local ownerText = "Empty"
-            local ownerIdNumber = tonumber(ownerId)
-            if ownerIdNumber then
-                local owner = Players:GetPlayerByUserId(ownerIdNumber)
-                if owner then
-                    ownerText = owner.DisplayName
-                    if owner == LocalPlayer then ownerText = ownerText .. " (You)" end
-                else ownerText = "User " .. tostring(ownerIdNumber) end
+            local dv = "Empty"
+            local dw = tonumber(du)
+            if dw then
+                local dx = b:GetPlayerByUserId(dw)
+                if dx then
+                    dv = dx.DisplayName
+                    if dx == m then dv = dv .. " (You)" end
+                else dv = "User " .. tostring(dw) end
             end
-            Hub.drawEspAt("plot_" .. plot.Name, sign.Position,
-                string.format("Plot %s\n%s", plot.Name, ownerText),
+            r.drawEspAt("plot_" .. ds.Name, dt.Position,
+                string.format("Plot %s\n%s", ds.Name, dv),
                 Color3.fromRGB(200, 170, 255), nil)
         end
     end
 end
-function Hub.runEsp()
-    Hub.clearTable(espDrawnKeys)
-    Hub.collectEggEsp()
-    Hub.collectGuardEsp()
-    Hub.collectPetEsp()
-    Hub.collectPlayerEsp()
-    Hub.collectMachineEsp()
-    Hub.collectPlotEsp()
-    for key in pairs(espObjects) do
-        if not espDrawnKeys[key] then Hub.releaseEsp(key) end
+function r.runEsp()
+    r.clearTable(dc)
+    r.collectEggEsp()
+    r.collectGuardEsp()
+    r.collectPetEsp()
+    r.collectPlayerEsp()
+    r.collectMachineEsp()
+    r.collectPlotEsp()
+    for dr in pairs(db) do
+        if not dc[dr] then r.releaseEsp(dr) end
     end
 end
 
 -- ============================================================
 -- SERVER HOP
 -- ============================================================
-function Hub.rememberVisited(jobId)
-    if typeof(jobId) ~= "string" or jobId == "" then return end
-    if Hub.countTable(hopHistory) >= 300 then Hub.clearTable(hopHistory) end
-    hopHistory[jobId] = true
+function r.rememberVisited(dr)
+    if typeof(dr) ~= "string" or dr == "" then return end
+    if r.countTable(dd) >= 300 then r.clearTable(dd) end
+    dd[dr] = true
 end
-Hub.rememberVisited(tostring(game.JobId))
-Hub.track(TeleportService.TeleportInitFailed:Connect(function(player, errorPlaceId, errorMessage)
-    if player == LocalPlayer then lastTeleportError = tostring(errorMessage or errorPlaceId) end
+r.rememberVisited(tostring(game.JobId))
+r.track(e.TeleportInitFailed:Connect(function(dr, ds, dt)
+    if dr == m then ce = tostring(dt or ds) end
 end))
-function Hub.fetchServerPage(cursor)
-    local url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&excludeFullGames=true&limit=100", game.PlaceId)
-    if cursor then url = url .. "&cursor=" .. cursor end
-    local ok, body = pcall(function() return game:HttpGet(url) end)
-    if not ok or typeof(body) ~= "string" then return nil end
-    local decoded, data = pcall(function() return HttpService:JSONDecode(body) end)
-    if not decoded or typeof(data) ~= "table" or typeof(data.data) ~= "table" then return nil end
-    return data
+function r.fetchServerPage(dr)
+    local ds = string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&excludeFullGames=true&limit=100", game.PlaceId)
+    if dr then ds = ds .. "&cursor=" .. dr end
+    local dt, du = pcall(function() return game:HttpGet(ds) end)
+    if not dt or typeof(du) ~= "string" then return nil end
+    local dv, dw = pcall(function() return d:JSONDecode(du) end)
+    if not dv or typeof(dw) ~= "table" or typeof(dw.data) ~= "table" then return nil end
+    return dw
 end
-function Hub.pickHopTargets()
-    local cursor = nil
-    local candidates = {}
+function r.pickHopTargets()
+    local dr = nil
+    local ds = {}
     for _ = 1, 4 do
-        local page = Hub.fetchServerPage(cursor)
-        if not page then break end
-        for _, server in ipairs(page.data) do
-            if typeof(server) == "table" and typeof(server.id) == "string"
-                and server.id ~= game.JobId and not hopHistory[server.id] then
-                local playing = tonumber(server.playing) or 0
-                local maxPlayers = tonumber(server.maxPlayers) or 0
-                if maxPlayers > 0 and playing < maxPlayers then
-                    table.insert(candidates, { id = server.id, playing = playing })
+        local dt = r.fetchServerPage(dr)
+        if not dt then break end
+        for _, du in ipairs(dt.data) do
+            if typeof(du) == "table" and typeof(du.id) == "string"
+                and du.id ~= game.JobId and not dd[du.id] then
+                local dv = tonumber(du.playing) or 0
+                local dw = tonumber(du.maxPlayers) or 0
+                if dw > 0 and dv < dw then
+                    table.insert(ds, { id = du.id, playing = dv })
                 end
             end
         end
-        cursor = typeof(page.nextPageCursor) == "string" and page.nextPageCursor or nil
-        if not cursor or #candidates >= 40 then break end
+        dr = typeof(dt.nextPageCursor) == "string" and dt.nextPageCursor or nil
+        if not dr or #ds >= 40 then break end
         task.wait(0.25)
     end
-    table.sort(candidates, function(a, b) return a.playing < b.playing end)
-    return candidates
+    table.sort(ds, function(dt, du) return dt.playing < du.playing end)
+    return ds
 end
-function Hub.tryTeleportTo(jobId)
-    lastTeleportError = nil
+function r.tryTeleportTo(dr)
+    ce = nil
     task.wait(1)
-    local ok = pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, LocalPlayer) end)
-    if not ok then return false end
-    Hub.waitFor(20, 0.25, function() return lastTeleportError ~= nil or (not isRunning) end)
-    if lastTeleportError then return false end
+    local ds = pcall(function() e:TeleportToPlaceInstance(game.PlaceId, dr, m) end)
+    if not ds then return false end
+    r.waitFor(20, 0.25, function() return ce ~= nil or (not s) end)
+    if ce then return false end
     return true
 end
-function Hub.serverHop(reason)
-    if isHopping or os.clock() < hopCooldownUntil then return false end
-    isHopping = true
-    local targets = Hub.pickHopTargets()
-    if typeof(targets) ~= "table" or #targets == 0 then
-        hopCooldownUntil = os.clock() + 30
-        isHopping = false
+function r.serverHop(dr)
+    if ca or os.clock() < cb then return false end
+    ca = true
+    local ds = r.pickHopTargets()
+    if typeof(ds) ~= "table" or #ds == 0 then
+        cb = os.clock() + 30
+        ca = false
         return false
     end
-    for attempt = 1, 3 do
-        if attempt > 1 then
-            targets = Hub.pickHopTargets()
-            if typeof(targets) ~= "table" or #targets == 0 then
-                hopCooldownUntil = os.clock() + 10
-                isHopping = false
+    for dt = 1, 3 do
+        if dt > 1 then
+            ds = r.pickHopTargets()
+            if typeof(ds) ~= "table" or #ds == 0 then
+                cb = os.clock() + 10
+                ca = false
                 return false
             end
         end
-        for index = 1, math.min(#targets, 10) do
-            if not isRunning then isHopping = false; return false end
-            local target = targets[index]
-            Hub.rememberVisited(target.id)
-            if Hub.tryTeleportTo(target.id) then
-                isHopping = false
+        for du = 1, math.min(#ds, 10) do
+            if not s then ca = false; return false end
+            local dv = ds[du]
+            r.rememberVisited(dv.id)
+            if r.tryTeleportTo(dv.id) then
+                ca = false
                 return true
             end
             task.wait(0.5)
         end
     end
-    hopCooldownUntil = os.clock() + 10
-    isHopping = false
+    cb = os.clock() + 10
+    ca = false
     return false
 end
-function Hub.runServerHop()
-    if carryingEgg or isHopping then return end
-    local mode = Hub.optionValue("HopMode", HOP_MODE_OPTIONS[1])
-    local threshold = tonumber(Hub.optionValue("HopValue", 15)) or 15
-    local now = os.clock()
-    if mode == "Timed Interval" then
-        if now - hopIntervalStart >= threshold * 60 then Hub.serverHop("Interval reached") end
+function r.runServerHop()
+    if bu or ca then return end
+    local dr = r.optionValue("HopMode", bb[1])
+    local ds = tonumber(r.optionValue("HopValue", 15)) or 15
+    local dt = os.clock()
+    if dr == "Timed Interval" then
+        if dt - cd >= ds * 60 then r.serverHop("Interval reached") end
         return
     end
-    if mode == "After Steal Count" then
-        if stolenEggs >= threshold then Hub.serverHop(string.format("Stole %d eggs", stolenEggs)) end
+    if dr == "After Steal Count" then
+        if bv >= ds then r.serverHop(string.format("Stole %d eggs", bv)) end
         return
     end
-    if Hub.pickStealTarget() ~= nil then eggCheckCountdown = 0; return end
-    if eggCheckCountdown == 0 then eggCheckCountdown = now
-    elseif now - eggCheckCountdown >= threshold then
-        eggCheckCountdown = 0
-        Hub.serverHop("No matching eggs in this server")
+    if r.pickStealTarget() ~= nil then cc = 0; return end
+    if cc == 0 then cc = dt
+    elseif dt - cc >= ds then
+        cc = 0
+        r.serverHop("No matching eggs in this server")
     end
 end
-function Hub.rejoinServer()
-    local ok = pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
-    if not ok then pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end) end
+function r.rejoinServer()
+    local dr = pcall(function() e:TeleportToPlaceInstance(game.PlaceId, game.JobId, m) end)
+    if not dr then pcall(function() e:Teleport(game.PlaceId, m) end) end
 end
 
 -- ============================================================
 -- WEBHOOK
 -- ============================================================
-function Hub.webhookPing()
-    local pingId = tostring(Hub.optionValue("WebhookPingId", "") or ""):gsub("%D", "")
-    if pingId == "" then return nil end
-    return string.format("<@%s>", pingId)
+function r.webhookPing()
+    local dr = tostring(r.optionValue("WebhookPingId", "") or ""):gsub("%D", "")
+    if dr == "" then return nil end
+    return string.format("<@%s>", dr)
 end
-function Hub.httpPost(payload)
-    local request = (syn and syn.request) or (http and http.request) or http_request or request
-    if typeof(request) ~= "function" then return false end
-    local url = tostring(Hub.optionValue("WebhookUrl", "") or "")
-    if url == "" then return false end
-    local body
-    local encoded = pcall(function() body = HttpService:JSONEncode(payload) end)
-    if not encoded then return false end
-    return pcall(request, {
-        Url = url, Method = "POST",
+function r.httpPost(dr)
+    local ds = (syn and syn.request) or (http and http.request) or http_request or request
+    if typeof(ds) ~= "function" then return false end
+    local dt = tostring(r.optionValue("WebhookUrl", "") or "")
+    if dt == "" then return false end
+    local du
+    local dv = pcall(function() du = d:JSONEncode(dr) end)
+    if not dv then return false end
+    return pcall(ds, {
+        Url = dt, Method = "POST",
         Headers = { ["Content-Type"] = "application/json" },
-        Body = body,
+        Body = du,
     })
 end
-function Hub.sendWebhookEmbed(embed, ping)
-    if not Hub.isOn("WebhookEnabled") then return false end
-    local payload = { username = "Apex Hub", embeds = { embed } }
-    if ping then payload.content = Hub.webhookPing() end
-    return Hub.httpPost(payload)
+function r.sendWebhookEmbed(dr, ds)
+    if not r.isOn("WebhookEnabled") then return false end
+    local dt = { username = "Apex Hub", embeds = { dr } }
+    if ds then dt.content = r.webhookPing() end
+    return r.httpPost(dt)
 end
-function Hub.embedField(name, value, inline) return { name = name, value = value, inline = inline ~= false } end
+function r.embedField(dr, ds, dt) return { name = dr, value = ds, inline = dt ~= false } end
 
-eggCarryWebhook = function(payload)
-    if typeof(payload) ~= "table" then return end
-    local record = typeof(payload.Uid) == "string" and Hub.findAreaEggRecord(payload.Uid) or nil
-    local category = record and record.AssetCategory or payload.AssetCategory
-    local text = { string.format("**%s** `%s`", Hub.assetName(category), tostring(Hub.resolveRarity(category) or "?")) }
-    local areaId = record and record.AreaId or payload.AreaId
-    if typeof(areaId) == "string" then table.insert(text, areaId) end
-    if record then
-        local scale = tonumber(record.AssetScale)
-        if scale then table.insert(text, string.format("x%.2f", scale)) end
-        local mutations = Hub.recordMutations(record)
-        if #mutations > 0 then table.insert(text, table.concat(mutations, ", ")) end
+bw = function(dr)
+    if typeof(dr) ~= "table" then return end
+    local ds = typeof(dr.Uid) == "string" and r.findAreaEggRecord(dr.Uid) or nil
+    local dt = ds and ds.AssetCategory or dr.AssetCategory
+    local du = { string.format("**%s** `%s`", r.assetName(dt), tostring(r.resolveRarity(dt) or "?")) }
+    local dv = ds and ds.AreaId or dr.AreaId
+    if typeof(dv) == "string" then table.insert(du, dv) end
+    if ds then
+        local dw = tonumber(ds.AssetScale)
+        if dw then table.insert(du, string.format("x%.2f", dw)) end
+        local dx = r.recordMutations(ds)
+        if #dx > 0 then table.insert(du, table.concat(dx, ", ")) end
     end
-    if #stolenEggLog < 100 then table.insert(stolenEggLog, table.concat(text, " | ")) end
+    if #da < 100 then table.insert(da, table.concat(du, " | ")) end
 end
-function Hub.trackWebhookEvents()
-    local save = Hub.getSave()
-    if not save then return end
-    if not webhookBaselineReady then
-        webhookBaselineReady = true
-        for uid in pairs(save.Inventory or {}) do knownInventoryUids[uid] = true end
-        for _, record in ipairs(Hub.getAreaEggs()) do knownEggUids[record.Uid] = true end
-        lastRebirthCount = tonumber(save.Rebirth) or 0
-        lastStolenEggCount = stolenEggs
+function r.trackWebhookEvents()
+    local dr = r.getSave()
+    if not dr then return end
+    if not ct then
+        ct = true
+        for ds in pairs(dr.Inventory or {}) do cs[ds] = true end
+        for _, ds in ipairs(r.getAreaEggs()) do cr[ds.Uid] = true end
+        cu = tonumber(dr.Rebirth) or 0
+        cv = bv
         return
     end
-    sessionEggsStolen = sessionEggsStolen + math.max(0, stolenEggs - lastStolenEggCount)
-    lastStolenEggCount = stolenEggs
-    for uid in pairs(save.Inventory or {}) do
-        if knownInventoryUids[uid] == nil then
-            knownInventoryUids[uid] = true
-            sessionPetsObtained = sessionPetsObtained + 1
+    cw = cw + math.max(0, bv - cv)
+    cv = bv
+    for ds in pairs(dr.Inventory or {}) do
+        if cs[ds] == nil then
+            cs[ds] = true
+            cx = cx + 1
         end
     end
-    local rebirth = tonumber(save.Rebirth) or 0
-    if lastRebirthCount and rebirth > lastRebirthCount then
-        sessionRebirths = sessionRebirths + rebirth - lastRebirthCount
+    local ds = tonumber(dr.Rebirth) or 0
+    if cu and ds > cu then
+        cy = cy + ds - cu
     end
-    lastRebirthCount = rebirth
-    local presentEggs = {}
-    local logSpawns = Hub.isOn("WebhookEggSpawns")
-    for _, record in ipairs(Hub.getAreaEggs()) do
-        presentEggs[record.Uid] = true
-        if knownEggUids[record.Uid] == nil then
-            knownEggUids[record.Uid] = true
-            local rarity = Hub.resolveRarity(record.AssetCategory)
-            if logSpawns and Hub.selectionAllows("WebhookRarities", rarity or "") and #eggSpawnQueue < 60 then
-                table.insert(eggSpawnQueue, {
-                    rank = RARITY_RANK[rarity or ""] or 0,
-                    order = #eggSpawnQueue,
-                    text = string.format("**%s** `%s` in %s", Hub.assetName(record.AssetCategory), tostring(rarity or "?"), tostring(record.AreaId)),
+    cu = ds
+    local dt = {}
+    local du = r.isOn("WebhookEggSpawns")
+    for _, dv in ipairs(r.getAreaEggs()) do
+        dt[dv.Uid] = true
+        if cr[dv.Uid] == nil then
+            cr[dv.Uid] = true
+            local dw = r.resolveRarity(dv.AssetCategory)
+            if du and r.selectionAllows("WebhookRarities", dw or "") and #cz < 60 then
+                table.insert(cz, {
+                    rank = au[dw or ""] or 0,
+                    order = #cz,
+                    text = string.format("**%s** `%s` in %s", r.assetName(dv.AssetCategory), tostring(dw or "?"), tostring(dv.AreaId)),
                 })
             end
         end
     end
-    for uid in pairs(knownEggUids) do
-        if not presentEggs[uid] then knownEggUids[uid] = nil end
+    for dv in pairs(cr) do
+        if not dt[dv] then cr[dv] = nil end
     end
 end
-function Hub.buildSummaryEmbed()
-    local save = Hub.getSave()
-    local fields = {}
-    if save then
-        table.insert(fields, Hub.embedField("Money", "`" .. Hub.formatNumber(save.Money) .. "`"))
-        table.insert(fields, Hub.embedField("Speed Power", "`" .. Hub.formatNumber(save.SpeedPower) .. "`"))
-        table.insert(fields, Hub.embedField("Rebirth", "`" .. tostring(save.Rebirth or 0) .. "`"))
-        table.insert(fields, Hub.embedField("Pets Owned", "`" .. tostring(Hub.countTable(save.Inventory)) .. "`"))
+function r.buildSummaryEmbed()
+    local dr = r.getSave()
+    local ds = {}
+    if dr then
+        table.insert(ds, r.embedField("Money", "`" .. r.formatNumber(dr.Money) .. "`"))
+        table.insert(ds, r.embedField("Speed Power", "`" .. r.formatNumber(dr.SpeedPower) .. "`"))
+        table.insert(ds, r.embedField("Rebirth", "`" .. tostring(dr.Rebirth or 0) .. "`"))
+        table.insert(ds, r.embedField("Pets Owned", "`" .. tostring(r.countTable(dr.Inventory)) .. "`"))
     end
-    table.insert(fields, Hub.embedField("Since Last Summary",
-        string.format("Eggs stolen: **%d**\nPets obtained: **%d**\nRebirths: **%d**", sessionEggsStolen, sessionPetsObtained, sessionRebirths), false))
+    table.insert(ds, r.embedField("Since Last Summary",
+        string.format("Eggs stolen: **%d**\nPets obtained: **%d**\nRebirths: **%d**", cw, cx, cy), false))
     return {
         author = { name = "Steal an Egg | Apex Hub" },
         title = "Session Summary",
         description = string.format("**Player** `%s`\n**Server** `%s`\n**Runtime** `%s`",
-            LocalPlayer.Name, jobIdLabel, Hub.formatElapsed(os.clock() - scriptStartTime)),
-        color = 5793266, fields = fields,
-        footer = { text = "Apex Hub | " .. DISCORD_LINK },
+            m.Name, bt, r.formatElapsed(os.clock() - cp)),
+        color = 5793266, fields = ds,
+        footer = { text = "Apex Hub | " .. n },
         timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
     }
 end
-Hub.sendSummary = function()
-    local sent = Hub.sendWebhookEmbed(Hub.buildSummaryEmbed(), true)
-    if sent then
-        sessionEggsStolen, sessionPetsObtained, sessionRebirths = 0, 0, 0
-        Hub.clearTable(eggSpawnQueue); Hub.clearTable(stolenEggLog)
+r.sendSummary = function()
+    local dr = r.sendWebhookEmbed(r.buildSummaryEmbed(), true)
+    if dr then
+        cw, cx, cy = 0, 0, 0
+        r.clearTable(cz); r.clearTable(da)
     end
-    return sent
+    return dr
 end
-function Hub.runWebhookSummary()
-    local interval = (tonumber(Hub.optionValue("WebhookInterval", 15)) or 15) * 60
-    if os.clock() - lastWebhookSentAt < interval then return false end
-    lastWebhookSentAt = os.clock()
-    return Hub.sendSummary()
+function r.runWebhookSummary()
+    local dr = (tonumber(r.optionValue("WebhookInterval", 15)) or 15) * 60
+    if os.clock() - cq < dr then return false end
+    cq = os.clock()
+    return r.sendSummary()
 end
 
 -- ============================================================
 -- PERFORMANCE
 -- ============================================================
-function Hub.applyAntiGameplayPause(enabled)
-    pcall(function() GuiService:SetGameplayPausedNotificationEnabled(not enabled) end)
+function r.applyAntiGameplayPause(dr)
+    pcall(function() j:SetGameplayPausedNotificationEnabled(not dr) end)
     pcall(function()
-        local notification = CoreGui:FindFirstChild("RobloxNetworkPauseNotification")
-        if notification then notification.Enabled = not enabled end
+        local ds = k:FindFirstChild("RobloxNetworkPauseNotification")
+        if ds then ds.Enabled = not dr end
     end)
 end
-function Hub.applyRendering(enabled)
-    pcall(function() RunService:Set3dRenderingEnabled(not enabled) end)
-    renderingDisabled = enabled
+function r.applyRendering(dr)
+    pcall(function() c:Set3dRenderingEnabled(not dr) end)
+    cl = dr
 end
-local effectClasses = { ParticleEmitter = true, Trail = true, Smoke = true, Fire = true, Sparkles = true }
-function Hub.setEffectEnabled(effect, enabled) pcall(function() effect.Enabled = enabled end) end
-function Hub.enableFpsBoost()
-    if fpsBoostSavedSettings then return end
-    local terrain = Workspace:FindFirstChildOfClass("Terrain")
-    local qualityLevel = nil
-    pcall(function() qualityLevel = settings().Rendering.QualityLevel end)
-    fpsBoostSavedSettings = {
-        QualityLevel = qualityLevel, GlobalShadows = Lighting.GlobalShadows, FogEnd = Lighting.FogEnd,
-        Terrain = terrain,
-        WaterWaveSize = terrain and terrain.WaterWaveSize or nil,
-        WaterReflectance = terrain and terrain.WaterReflectance or nil,
+local dr = { ParticleEmitter = true, Trail = true, Smoke = true, Fire = true, Sparkles = true }
+function r.setEffectEnabled(ds, dt) pcall(function() ds.Enabled = dt end) end
+function r.enableFpsBoost()
+    if cm then return end
+    local ds = h:FindFirstChildOfClass("Terrain")
+    local dt = nil
+    pcall(function() dt = settings().Rendering.QualityLevel end)
+    cm = {
+        QualityLevel = dt, GlobalShadows = g.GlobalShadows, FogEnd = g.FogEnd,
+        Terrain = ds,
+        WaterWaveSize = ds and ds.WaterWaveSize or nil,
+        WaterReflectance = ds and ds.WaterReflectance or nil,
         Effects = {},
     }
     pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
-    Lighting.GlobalShadows = false; Lighting.FogEnd = 1000000
-    if terrain then terrain.WaterWaveSize = 0; terrain.WaterReflectance = 0 end
-    for _, effect in ipairs(Workspace:GetDescendants()) do
-        if effectClasses[effect.ClassName] and effect.Enabled then
-            table.insert(fpsBoostSavedSettings.Effects, effect)
-            Hub.setEffectEnabled(effect, false)
+    g.GlobalShadows = false; g.FogEnd = 1000000
+    if ds then ds.WaterWaveSize = 0; ds.WaterReflectance = 0 end
+    for _, du in ipairs(h:GetDescendants()) do
+        if dr[du.ClassName] and du.Enabled then
+            table.insert(cm.Effects, du)
+            r.setEffectEnabled(du, false)
         end
     end
-    fpsEffectWatcher = Workspace.DescendantAdded:Connect(function(effect)
-        if effectClasses[effect.ClassName] and Hub.isOn("FpsBoost") then Hub.setEffectEnabled(effect, false) end
+    cn = h.DescendantAdded:Connect(function(du)
+        if dr[du.ClassName] and r.isOn("FpsBoost") then r.setEffectEnabled(du, false) end
     end)
 end
-function Hub.disableFpsBoost()
-    if fpsEffectWatcher then fpsEffectWatcher:Disconnect(); fpsEffectWatcher = nil end
-    local saved = fpsBoostSavedSettings; if not saved then return end
-    fpsBoostSavedSettings = nil
-    if saved.QualityLevel then pcall(function() settings().Rendering.QualityLevel = saved.QualityLevel end) end
-    Lighting.GlobalShadows = saved.GlobalShadows; Lighting.FogEnd = saved.FogEnd
-    if saved.Terrain and saved.Terrain.Parent then
-        saved.Terrain.WaterWaveSize = saved.WaterWaveSize
-        saved.Terrain.WaterReflectance = saved.WaterReflectance
+function r.disableFpsBoost()
+    if cn then cn:Disconnect(); cn = nil end
+    local ds = cm; if not ds then return end
+    cm = nil
+    if ds.QualityLevel then pcall(function() settings().Rendering.QualityLevel = ds.QualityLevel end) end
+    g.GlobalShadows = ds.GlobalShadows; g.FogEnd = ds.FogEnd
+    if ds.Terrain and ds.Terrain.Parent then
+        ds.Terrain.WaterWaveSize = ds.WaterWaveSize
+        ds.Terrain.WaterReflectance = ds.WaterReflectance
     end
-    for _, effect in ipairs(saved.Effects) do Hub.setEffectEnabled(effect, true) end
+    for _, dt in ipairs(ds.Effects) do r.setEffectEnabled(dt, true) end
 end
-function Hub.applyFpsCap(fps)
-    local apply = setfpscap or (syn and syn.set_fps_cap)
-    if typeof(apply) ~= "function" then
-        if not fpsCapUnavailable then fpsCapUnavailable = true end
+function r.applyFpsCap(ds)
+    local dt = setfpscap or (syn and syn.set_fps_cap)
+    if typeof(dt) ~= "function" then
+        if not co then co = true end
         return false
     end
-    return pcall(apply, math.clamp(tonumber(fps) or 60, 15, 360))
+    return pcall(dt, math.clamp(tonumber(ds) or 60, 15, 360))
 end
-function Hub.handleDisconnect(reason)
-    if disconnectHandled then return end
-    disconnectHandled = true
-    if Hub.isOn("WebhookDisconnectAlerts") then
-        Hub.sendWebhookEmbed({
+function r.handleDisconnect(ds)
+    if ck then return end
+    ck = true
+    if r.isOn("WebhookDisconnectAlerts") then
+        r.sendWebhookEmbed({
             author = { name = "Steal an Egg | Apex Hub" },
             title = "Disconnected",
-            description = string.format("**Player** `%s`\n**Reason** %s", LocalPlayer.Name, tostring(reason or "Connection lost")),
+            description = string.format("**Player** `%s`\n**Reason** %s", m.Name, tostring(ds or "Connection lost")),
             color = 15158332,
-            footer = { text = "Apex Hub | " .. DISCORD_LINK },
+            footer = { text = "Apex Hub | " .. n },
             timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
         }, true)
     end
-    if Hub.isOn("AutoReconnect") then task.delay(2, Hub.rejoinServer) end
+    if r.isOn("AutoReconnect") then task.delay(2, r.rejoinServer) end
 end
 
-local tasks = {
-    ["Auto Steal Egg"] = { Ready = Hub.canAutoSteal, Run = Hub.runAutoSteal, Interval = 0.25 },
-    ["Auto Place Egg"] = { Ready = Hub.canAutoPlace, Run = Hub.runAutoPlaceEggs, Interval = 0.45 },
-    ["Auto Hatch"] = { Ready = Hub.canAutoHatch, Run = Hub.runAutoOpenReadyEggs, Interval = 0.55 },
-    ["Auto Treadmill"] = { Ready = Hub.canAutoTreadmill, Run = Hub.runAutoTreadmillTraining, Interval = 1.2 },
+local ds = {
+    ["Auto Steal Egg"] = { Ready = r.canAutoSteal, Run = r.runAutoSteal, Interval = 0.25 },
+    ["Auto Place Egg"] = { Ready = r.canAutoPlace, Run = r.runAutoPlaceEggs, Interval = 0.45 },
+    ["Auto Hatch"] = { Ready = r.canAutoHatch, Run = r.runAutoOpenReadyEggs, Interval = 0.55 },
+    ["Auto Treadmill"] = { Ready = r.canAutoTreadmill, Run = r.runAutoTreadmillTraining, Interval = 1.2 },
 }
-function Hub.priorityOrder()
-    local selected, order = {}, {}
-    for _, slot in ipairs(PRIORITY_SLOTS) do
-        local taskName = Hub.optionValue(slot, nil)
-        if tasks[taskName] and not selected[taskName] then selected[taskName] = true; table.insert(order, taskName) end
+function r.priorityOrder()
+    local dt, du = {}, {}
+    for _, dv in ipairs(ba) do
+        local dw = r.optionValue(dv, nil)
+        if ds[dw] and not dt[dw] then dt[dw] = true; table.insert(du, dw) end
     end
-    for _, taskName in ipairs(TASK_NAMES) do
-        if not selected[taskName] then selected[taskName] = true; table.insert(order, taskName) end
+    for _, dv in ipairs(az) do
+        if not dt[dv] then dt[dv] = true; table.insert(du, dv) end
     end
-    return order
+    return du
 end
 
 -- ============================================================
@@ -2127,7 +2124,7 @@ local function dx()
         local dy, dz = pcall(gethui)
         if dy and dz then return dz end
     end
-    return CoreGui
+    return k
 end
 
 local dy = Instance.new("ScreenGui")
@@ -2153,7 +2150,7 @@ ea.Position = UDim2.new(0, 24, 0.4, 0)
 ea.BackgroundColor3 = dw.panelBg
 ea.BackgroundTransparency = 0.15
 ea.BorderSizePixel = 0
-ea.Image = TOGGLE_IMAGE
+ea.Image = o
 ea.ImageColor3 = Color3.fromRGB(255, 255, 255)
 ea.ScaleType = Enum.ScaleType.Fit
 ea.AutoButtonColor = false
@@ -2176,18 +2173,27 @@ ed.PaddingLeft = UDim.new(0, 8)
 ed.PaddingRight = UDim.new(0, 8)
 ed.Parent = ea
 
-local ee, ef = 640, 440
+local ee, ef = 640, 400
+local evp = h.CurrentCamera and h.CurrentCamera.ViewportSize
+if evp then
+    ef = math.min(ef, math.max(320, evp.Y - 80))
+    ee = math.min(ee, math.max(560, evp.X - 40))
+end
 local eg = Instance.new("Frame")
 eg.Name = "Panel"
 eg.Size = UDim2.fromOffset(ee, ef)
-eg.Position = UDim2.new(0.5, -ee / 2, 0.5, -ef / 2)
+if evp then
+    eg.Position = UDim2.new(0.5, -ee / 2, 0, 40 + math.max(0, (evp.Y - 80 - ef) * 0.5))
+else
+    eg.Position = UDim2.new(0.5, -ee / 2, 0.5, -ef / 2)
+end
 eg.BackgroundColor3 = dw.panelBg
 eg.BackgroundTransparency = 0.08
 eg.BorderSizePixel = 0
 eg.ClipsDescendants = true
 eg.Active = true
 eg.Draggable = false
-eg.Visible = true
+eg.Visible = false
 eg.Parent = dy
 
 local eh = Instance.new("UICorner")
@@ -2231,7 +2237,7 @@ es.Font = Enum.Font.GothamBold
 es.TextSize = 18
 es.TextColor3 = dw.text
 es.TextXAlignment = Enum.TextXAlignment.Left
-es.Text = HUB_NAME
+es.Text = p
 es.Parent = eq
 
 local et = Instance.new("TextLabel")
@@ -2242,7 +2248,7 @@ et.Font = Enum.Font.Gotham
 et.TextSize = 12
 et.TextColor3 = dw.textDim
 et.TextXAlignment = Enum.TextXAlignment.Left
-et.Text = DISCORD_SUBTITLE
+et.Text = q
 et.Parent = eq
 
 local eu = Instance.new("TextButton")
@@ -2259,11 +2265,11 @@ eu.Text = "Discord"
 eu.Parent = eq
 ej(eu, 6)
 em(eu, Color3.fromRGB(90, 90, 130), 1)
-eu.MouseEnter:Connect(function() TweenService:Create(eu, TweenInfo.new(0.15), { BackgroundTransparency = 0 }):Play() end)
-eu.MouseLeave:Connect(function() TweenService:Create(eu, TweenInfo.new(0.15), { BackgroundTransparency = 0.15 }):Play() end)
+eu.MouseEnter:Connect(function() l:Create(eu, TweenInfo.new(0.15), { BackgroundTransparency = 0 }):Play() end)
+eu.MouseLeave:Connect(function() l:Create(eu, TweenInfo.new(0.15), { BackgroundTransparency = 0.15 }):Play() end)
 eu.MouseButton1Click:Connect(function()
-    pcall(function() setclipboard(DISCORD_LINK) end)
-    Hub.notify("Apex Hub", "Discord link copied", "Success", 3)
+    pcall(function() setclipboard(n) end)
+    r.notify("Apex Hub", "Discord link copied", "Success", 3)
 end)
 
 local ev = Instance.new("TextButton")
@@ -2280,8 +2286,8 @@ ev.Text = "X"
 ev.Parent = eq
 ej(ev, 6)
 em(ev, Color3.fromRGB(120, 40, 40), 1)
-ev.MouseEnter:Connect(function() TweenService:Create(ev, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(90, 30, 30), BackgroundTransparency = 0 }):Play() end)
-ev.MouseLeave:Connect(function() TweenService:Create(ev, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(50, 20, 20), BackgroundTransparency = 0.2 }):Play() end)
+ev.MouseEnter:Connect(function() l:Create(ev, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(90, 30, 30), BackgroundTransparency = 0 }):Play() end)
+ev.MouseLeave:Connect(function() l:Create(ev, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(50, 20, 20), BackgroundTransparency = 0.2 }):Play() end)
 ev.MouseButton1Click:Connect(function() eg.Visible = false end)
 
 local ew = 150
@@ -2343,101 +2349,83 @@ fe.Parent = fc
 
 local function ff(fg, fh)
     fh = fh or fg
-    local startDown, startMoved = false, false
-    local pressPos, basePos = nil, nil
-    local function hitTest(pos)
-        local ok, hit = pcall(function()
-            local abs = fh.AbsolutePosition
-            local absSize = fh.AbsoluteSize
-            return pos.X >= abs.X and pos.X <= abs.X + absSize.X
-                and pos.Y >= abs.Y and pos.Y <= abs.Y + absSize.Y
-        end)
-        return ok and hit == true
-    end
-    du(UserInputService.InputBegan:Connect(function(fn)
-        local ut = fn.UserInputType
-        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
-        if not hitTest(fn.Position) then return end
-        startDown = true
-        startMoved = false
-        pressPos = fn.Position
-        basePos = fg.Position
-    end))
-    du(UserInputService.InputChanged:Connect(function(fn)
-        local ut = fn.UserInputType
-        if ut ~= Enum.UserInputType.MouseMovement and ut ~= Enum.UserInputType.Touch then return end
-        if not startDown or not pressPos then return end
-        local delta = fn.Position - pressPos
-        if not startMoved and (math.abs(delta.X) > 4 or math.abs(delta.Y) > 4) then startMoved = true end
-        if startMoved then
-            fg.Position = UDim2.new(
-                basePos.X.Scale, basePos.X.Offset + delta.X,
-                basePos.Y.Scale, basePos.Y.Offset + delta.Y
-            )
+    local fk, fl, fm, fp = false, nil, nil, nil
+    du(fh.InputBegan:Connect(function(fn)
+        if fn.UserInputType == Enum.UserInputType.MouseButton1
+        or fn.UserInputType == Enum.UserInputType.Touch then
+            fk = true
+            fl = fn.Position
+            fm = fg.Position
+            fp = fg.AbsolutePosition
+            fn.Changed:Connect(function()
+                if fn.UserInputState == Enum.UserInputState.End then fk = false end
+            end)
         end
     end))
-    du(UserInputService.InputEnded:Connect(function(fn)
-        local ut = fn.UserInputType
-        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
-        startDown = false
-        startMoved = false
-        pressPos = nil
-        basePos = nil
+    du(f.InputChanged:Connect(function(fn)
+        if fk and fp and (fn.UserInputType == Enum.UserInputType.MouseMovement
+        or fn.UserInputType == Enum.UserInputType.Touch) then
+            local fo = fn.Position - fl
+            local fq = fp.X + fo.X
+            local fr = fp.Y + fo.Y
+            local vs = h.CurrentCamera and h.CurrentCamera.ViewportSize
+            if vs then
+                fq = math.clamp(fq, 6, vs.X - fg.AbsoluteSize.X - 6)
+                fr = math.clamp(fr, 6, vs.Y - fg.AbsoluteSize.Y - 6)
+            end
+            fg.Position = UDim2.new(
+                fm.X.Scale, fq - fm.X.Scale * (vs and vs.X or 0),
+                fm.Y.Scale, fr - fm.Y.Scale * (vs and vs.Y or 0)
+            )
+        end
     end))
 end
 ff(eg, eq)
 
 do
-    local iconDown, iconMoved = false, false
-    local pressPos, basePos = nil, nil
-    local function iconHitTest(pos)
-        local ok, hit = pcall(function()
-            local abs = ea.AbsolutePosition
-            local absSize = ea.AbsoluteSize
-            return pos.X >= abs.X and pos.X <= abs.X + absSize.X
-                and pos.Y >= abs.Y and pos.Y <= abs.Y + absSize.Y
-        end)
-        return ok and hit == true
-    end
-    du(UserInputService.InputBegan:Connect(function(input)
-        local ut = input.UserInputType
-        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
-        if not iconHitTest(input.Position) then return end
-        iconDown = true
-        iconMoved = false
-        pressPos = input.Position
-        basePos = ea.Position
+    local fi, fj, fk, fl, fp = false, nil, nil, false, nil
+    du(ea.InputBegan:Connect(function(fm)
+        if fm.UserInputType == Enum.UserInputType.MouseButton1
+        or fm.UserInputType == Enum.UserInputType.Touch then
+            fi = true
+            fl = false
+            fj = fm.Position
+            fk = ea.Position
+            fp = ea.AbsolutePosition
+            fm.Changed:Connect(function()
+                if fm.UserInputState == Enum.UserInputState.End then fi = false end
+            end)
+        end
     end))
-    du(UserInputService.InputChanged:Connect(function(input)
-        local ut = input.UserInputType
-        if ut ~= Enum.UserInputType.MouseMovement and ut ~= Enum.UserInputType.Touch then return end
-        if not iconDown or not pressPos then return end
-        local delta = input.Position - pressPos
-        if not iconMoved and (math.abs(delta.X) > 4 or math.abs(delta.Y) > 4) then iconMoved = true end
-        if iconMoved then
+    du(f.InputChanged:Connect(function(fm)
+        if fi and fp and (fm.UserInputType == Enum.UserInputType.MouseMovement
+        or fm.UserInputType == Enum.UserInputType.Touch) then
+            local fn = fm.Position - fj
+            if math.abs(fn.X) > 4 or math.abs(fn.Y) > 4 then fl = true end
+            local fq = fp.X + fn.X
+            local fr = fp.Y + fn.Y
+            local vs = h.CurrentCamera and h.CurrentCamera.ViewportSize
+            if vs then
+                fq = math.clamp(fq, 6, vs.X - ea.AbsoluteSize.X - 6)
+                fr = math.clamp(fr, 6, vs.Y - ea.AbsoluteSize.Y - 6)
+            end
             ea.Position = UDim2.new(
-                basePos.X.Scale, basePos.X.Offset + delta.X,
-                basePos.Y.Scale, basePos.Y.Offset + delta.Y
+                fk.X.Scale, fq - fk.X.Scale * (vs and vs.X or 0),
+                fk.Y.Scale, fr - fk.Y.Scale * (vs and vs.Y or 0)
             )
         end
     end))
-    du(UserInputService.InputEnded:Connect(function(input)
-        local ut = input.UserInputType
-        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
-        if not iconDown then return end
-        if not iconMoved then eg.Visible = not eg.Visible end
-        iconDown = false
-        iconMoved = false
-        pressPos = nil
-        basePos = nil
+    du(ea.MouseButton1Click:Connect(function()
+        if fl then return end
+        eg.Visible = not eg.Visible
     end))
     du(ea.MouseEnter:Connect(function()
-        TweenService:Create(ea, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(28, 28, 34), BackgroundTransparency = 0 }):Play()
-        TweenService:Create(ec, TweenInfo.new(0.15), { Color = dw.accent, Transparency = 0 }):Play()
+        l:Create(ea, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(28, 28, 34), BackgroundTransparency = 0 }):Play()
+        l:Create(ec, TweenInfo.new(0.15), { Color = dw.accent, Transparency = 0 }):Play()
     end))
     du(ea.MouseLeave:Connect(function()
-        TweenService:Create(ea, TweenInfo.new(0.15), { BackgroundColor3 = dw.panelBg, BackgroundTransparency = 0.15 }):Play()
-        TweenService:Create(ec, TweenInfo.new(0.15), { Color = dw.panelBorderHi, Transparency = 0.3 }):Play()
+        l:Create(ea, TweenInfo.new(0.15), { BackgroundColor3 = dw.panelBg, BackgroundTransparency = 0.15 }):Play()
+        l:Create(ec, TweenInfo.new(0.15), { Color = dw.panelBorderHi, Transparency = 0.3 }):Play()
     end))
 end
 
@@ -2453,18 +2441,18 @@ function dt.OnChange(fi, fj)
     table.insert(dt.__callbacks[fi], fj)
 end
 
-function Hub.getState(fi, fj)
+function r.getState(fi, fj)
     local fk = dt.GetState(fi)
     if fk ~= nil then return fk end
     return fj
 end
-function Hub.isOn(fi) return dt.GetState(fi) == true end
-function Hub.optionValue(fi, fj)
+function r.isOn(fi) return dt.GetState(fi) == true end
+function r.optionValue(fi, fj)
     local fk = dt.GetState(fi)
     if fk == nil then return fj end
     return fk
 end
-function Hub.multiSelected(fi)
+function r.multiSelected(fi)
     local fj = dt.GetState(fi)
     local fk = {}
     if typeof(fj) ~= "table" then
@@ -2477,27 +2465,27 @@ function Hub.multiSelected(fi)
     end
     return fk
 end
-function Hub.multiHasAny(fi) return next(Hub.multiSelected(fi)) ~= nil end
-function Hub.selectionAllows(fi, fj)
-    if not Hub.multiHasAny(fi) then return true end
-    return Hub.multiSelected(fi)[fj] == true
+function r.multiHasAny(fi) return next(r.multiSelected(fi)) ~= nil end
+function r.selectionAllows(fi, fj)
+    if not r.multiHasAny(fi) then return true end
+    return r.multiSelected(fi)[fj] == true
 end
-function Hub.matchesMutationFilter(fi, fj)
-    if not Hub.multiHasAny(fi) then return true end
-    local fk = Hub.multiSelected(fi)
-    for _, fl in ipairs(Hub.recordMutations(fj)) do
+function r.matchesMutationFilter(fi, fj)
+    if not r.multiHasAny(fi) then return true end
+    local fk = r.multiSelected(fi)
+    for _, fl in ipairs(r.recordMutations(fj)) do
         if fk[fl] then return true end
     end
     return false
 end
-function Hub.matchesEggFilters(fi, fj, fk, fl)
+function r.matchesEggFilters(fi, fj, fk, fl)
     if fj then
         local fm = fi.AreaId
-        if typeof(fm) ~= "string" or not Hub.selectionAllows(fj, fm) then return false end
+        if typeof(fm) ~= "string" or not r.selectionAllows(fj, fm) then return false end
     end
-    local fm = Hub.resolveRarity(fi.AssetCategory)
-    if typeof(fm) ~= "string" or not Hub.selectionAllows(fk, fm) then return false end
-    return Hub.matchesMutationFilter(fl, fi)
+    local fm = r.resolveRarity(fi.AssetCategory)
+    if typeof(fm) ~= "string" or not r.selectionAllows(fk, fm) then return false end
+    return r.matchesMutationFilter(fl, fi)
 end
 
 local function fi(fj, fk)
@@ -2528,19 +2516,19 @@ local function fi(fj, fk)
 
     local function fq(fr)
         if fr then
-            TweenService:Create(fn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(30, 20, 20), BackgroundTransparency = 0.2 }):Play()
-            TweenService:Create(fn, TweenInfo.new(0.15), { TextColor3 = dw.text }):Play()
-            TweenService:Create(fp, TweenInfo.new(0.15), { Size = UDim2.new(0, 3, 0.7, 0) }):Play()
+            l:Create(fn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(30, 20, 20), BackgroundTransparency = 0.2 }):Play()
+            l:Create(fn, TweenInfo.new(0.15), { TextColor3 = dw.text }):Play()
+            l:Create(fp, TweenInfo.new(0.15), { Size = UDim2.new(0, 3, 0.7, 0) }):Play()
         else
-            TweenService:Create(fn, TweenInfo.new(0.15), { BackgroundColor3 = dw.sectionBg, BackgroundTransparency = 0.5 }):Play()
-            TweenService:Create(fn, TweenInfo.new(0.15), { TextColor3 = dw.textDim }):Play()
-            TweenService:Create(fp, TweenInfo.new(0.15), { Size = UDim2.new(0, 3, 0, 0) }):Play()
+            l:Create(fn, TweenInfo.new(0.15), { BackgroundColor3 = dw.sectionBg, BackgroundTransparency = 0.5 }):Play()
+            l:Create(fn, TweenInfo.new(0.15), { TextColor3 = dw.textDim }):Play()
+            l:Create(fp, TweenInfo.new(0.15), { Size = UDim2.new(0, 3, 0, 0) }):Play()
         end
     end
     fn.MouseEnter:Connect(function()
         if dt.__activeTab ~= fj then
-            TweenService:Create(fn, TweenInfo.new(0.15), { BackgroundTransparency = 0.25 }):Play()
-            TweenService:Create(fn, TweenInfo.new(0.15), { TextColor3 = dw.text }):Play()
+            l:Create(fn, TweenInfo.new(0.15), { BackgroundTransparency = 0.25 }):Play()
+            l:Create(fn, TweenInfo.new(0.15), { TextColor3 = dw.text }):Play()
         end
     end)
     fn.MouseLeave:Connect(function()
@@ -2690,8 +2678,8 @@ function dt.AddToggle(fo, fp)
     local fu = fp.Default == true
     local function fv(fw)
         local fy = TweenInfo.new(fw and 0.18 or 0)
-        TweenService:Create(fs, fy, { BackgroundColor3 = fu and dw.toggleOn or dw.toggleOff }):Play()
-        TweenService:Create(ft, fy, { Position = fu and UDim2.fromOffset(20, 2) or UDim2.fromOffset(2, 2) }):Play()
+        l:Create(fs, fy, { BackgroundColor3 = fu and dw.toggleOn or dw.toggleOff }):Play()
+        l:Create(ft, fy, { Position = fu and UDim2.fromOffset(20, 2) or UDim2.fromOffset(2, 2) }):Play()
     end
     fv(false)
     dt.__state[fp.Id] = fu
@@ -2778,13 +2766,13 @@ function dt.AddSlider(fo, fp)
             gd(gf.Position.X)
         end
     end)
-    du(UserInputService.InputChanged:Connect(function(gf)
+    du(f.InputChanged:Connect(function(gf)
         if gc and (gf.UserInputType == Enum.UserInputType.MouseMovement
         or gf.UserInputType == Enum.UserInputType.Touch) then
             gd(gf.Position.X)
         end
     end))
-    du(UserInputService.InputEnded:Connect(function(gf)
+    du(f.InputEnded:Connect(function(gf)
         if gf.UserInputType == Enum.UserInputType.MouseButton1
         or gf.UserInputType == Enum.UserInputType.Touch then
             gc = false
@@ -2901,9 +2889,9 @@ function dt.AddDropdown(fo, fp)
         end
         gd()
 
-        gc.MouseEnter:Connect(function() TweenService:Create(gc, TweenInfo.new(0.12), { BackgroundTransparency = 0.3 }):Play() end)
+        gc.MouseEnter:Connect(function() l:Create(gc, TweenInfo.new(0.12), { BackgroundTransparency = 0.3 }):Play() end)
         gc.MouseLeave:Connect(function()
-            TweenService:Create(gc, TweenInfo.new(0.12), { BackgroundTransparency = 0.6 }):Play()
+            l:Create(gc, TweenInfo.new(0.12), { BackgroundTransparency = 0.6 }):Play()
             gd()
         end)
         gc.MouseButton1Click:Connect(function()
@@ -2960,8 +2948,8 @@ function dt.AddButton(fo, fp)
     fs.Text = fp.Text or "Run"
     fs.Parent = fq
     ej(fs, 4)
-    fr.MouseEnter:Connect(function() TweenService:Create(fs, TweenInfo.new(0.12), { BackgroundTransparency = 0 }):Play() end)
-    fr.MouseLeave:Connect(function() TweenService:Create(fs, TweenInfo.new(0.12), { BackgroundTransparency = 0.2 }):Play() end)
+    fr.MouseEnter:Connect(function() l:Create(fs, TweenInfo.new(0.12), { BackgroundTransparency = 0 }):Play() end)
+    fr.MouseLeave:Connect(function() l:Create(fs, TweenInfo.new(0.12), { BackgroundTransparency = 0.2 }):Play() end)
     fr.MouseButton1Click:Connect(function()
         if fp.Callback then pcall(fp.Callback) end
     end)
@@ -3105,7 +3093,7 @@ fp.VerticalAlignment = Enum.VerticalAlignment.Bottom
 fp.HorizontalAlignment = Enum.HorizontalAlignment.Right
 fp.Parent = fo
 
-function Hub.notify(fq, fr, fs, ft)
+function r.notify(fq, fr, fs, ft)
     local fu = Instance.new("Frame")
     fu.BackgroundColor3 = dw.panelBg
     fu.BackgroundTransparency = 0.05
@@ -3143,10 +3131,10 @@ function Hub.notify(fq, fr, fs, ft)
     fx.Parent = fu
     task.delay(tonumber(ft) or 3, function()
         local fy = TweenInfo.new(0.25)
-        TweenService:Create(fu, fy, { BackgroundTransparency = 1 }):Play()
+        l:Create(fu, fy, { BackgroundTransparency = 1 }):Play()
         for _, fz in ipairs(fu:GetDescendants()) do
-            if fz:IsA("TextLabel") then TweenService:Create(fz, fy, { TextTransparency = 1 }):Play()
-            elseif fz:IsA("UIStroke") then TweenService:Create(fz, fy, { Transparency = 1 }):Play() end
+            if fz:IsA("TextLabel") then l:Create(fz, fy, { TextTransparency = 1 }):Play()
+            elseif fz:IsA("UIStroke") then l:Create(fz, fy, { Transparency = 1 }):Play() end
         end
         task.wait(0.3)
         fu:Destroy()
@@ -3172,9 +3160,9 @@ do
     fq.stolenRow = dt.AddStatus(fs, { Title = "Stolen Eggs", Value = "0" })
     fq.carryingRow = dt.AddStatus(fs, { Title = "Carrying Egg", Value = "No" })
     fq.runtimeRow = dt.AddStatus(fs, { Title = "Runtime", Value = "0m" })
-    dt.AddStatus(fs, { Title = "Server", Value = jobIdLabel })
+    dt.AddStatus(fs, { Title = "Server", Value = bt })
 
-    fq.inventoryProgress = dt.AddStatus(ft, { Title = "Egg Inventory", Value = tostring(Hub.eggInventoryCount()) })
+    fq.inventoryProgress = dt.AddStatus(ft, { Title = "Egg Inventory", Value = tostring(r.eggInventoryCount()) })
     fq.moneyRow = dt.AddStatus(ft, { Title = "Money", Value = "0" })
     fq.speedRow = dt.AddStatus(ft, { Title = "Speed Power", Value = "0" })
     fq.rebirthRow = dt.AddStatus(ft, { Title = "Rebirths", Value = "0" })
@@ -3182,23 +3170,23 @@ do
 
     dt.AddButton(fu, { Title = "Return to Base", Text = "Return", Callback = function()
         task.spawn(function()
-            if not Hub.getBasePosition() or not Hub.returnToBaseBypass(nil) then
-                Hub.notify("Return", "Base unavailable", "Warning", 3)
+            if not r.getBasePosition() or not r.returnToBaseBypass(nil) then
+                r.notify("Return", "Base unavailable", "Warning", 3)
             end
         end)
     end })
     dt.AddButton(fu, { Title = "Place Eggs", Text = "Place", Callback = function()
-        task.spawn(function() Hub.runAutoPlaceEggs(true) end)
+        task.spawn(function() r.runAutoPlaceEggs(true) end)
     end })
     dt.AddButton(fu, { Title = "Server Hop", Text = "Hop", Callback = function()
-        task.spawn(function() hopCooldownUntil = 0; Hub.serverHop("Manual") end)
+        task.spawn(function() cb = 0; r.serverHop("Manual") end)
     end })
     dt.AddButton(fu, { Title = "Fuse Now", Text = "Fuse", Callback = function()
-        task.spawn(function() Hub.runAutoFusePets(true) end)
+        task.spawn(function() r.runAutoFusePets(true) end)
     end })
 
     dt.AddParagraph(fv, { Title = "Farm flow",
-        Content = "Grab1 -> Hold 3s -> Release -> Grab2 -> Return Base. Hold time " .. HOLD_DURATION .. "s." })
+        Content = "Grab1 -> Hold 3s -> Release -> Grab2 -> Return Base. Hold time " .. bp .. "s." })
     dt.AddParagraph(fv, { Title = "Filters",
         Content = "Empty multi-select filters mean everything matches." })
 
@@ -3216,7 +3204,7 @@ do
         Id = "StealMoveSpeed",
         Title = "Steal Speed",
         Min = 16, Max = 2000,
-        Default = STEAL_SPEED_DEFAULT,
+        Default = bj,
         Step = 1,
         Suffix = " studs/s",
     })
@@ -3225,42 +3213,41 @@ do
         Id = "BypassReturnSpeed",
         Title = "Return Speed",
         Min = 16, Max = 2000,
-        Default = BYPASS_SPEED_DEFAULT,
+        Default = bk,
         Step = 1,
         Suffix = " studs/s",
     })
 
     dt.AddDivider(fx, { Title = "Target filters" })
-    dt.AddDropdown(fx, { Id = "StealZones", Title = "Areas", Options = areaList, Multi = true, Default = {} })
-    dt.AddDropdown(fx, { Id = "StealRarities", Title = "Rarities", Options = RARITY_NAMES, Multi = true, Default = {} })
-    dt.AddDropdown(fx, { Id = "StealMutations", Title = "Mutations", Options = MUTATION_NAMES, Multi = true, Default = {} })
-    dt.AddDropdown(fx, { Id = "StealPriority", Title = "Target Priority", Options = STEAL_PRIORITY_OPTIONS, Default = "Rarest" })
+    dt.AddDropdown(fx, { Id = "StealZones", Title = "Areas", Options = bd, Multi = true, Default = {} })
+    dt.AddDropdown(fx, { Id = "StealRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(fx, { Id = "StealMutations", Title = "Mutations", Options = av, Multi = true, Default = {} })
+    dt.AddDropdown(fx, { Id = "StealPriority", Title = "Target Priority", Options = aw, Default = "Rarest" })
     dt.AddSlider(fx, { Id = "StealBigEggScale", Title = "Minimum Big Egg Size", Min = 1, Max = 50, Default = 1.5, Step = 0.1, Suffix = "x" })
     dt.AddDivider(fx, { Title = "Carry behavior" })
-    dt.AddToggle(fx, { Id = "StealByTeleport", Title = "Steal by Teleport", Description = "Teleport to egg and back to base", Default = false })
     dt.AddToggle(fx, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
     dt.AddToggle(fx, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
 
     dt.AddToggle(fy, { Id = "AutoPlaceSelected", Title = "Auto Place Selected", Default = false })
     dt.AddToggle(fy, { Id = "AutoPlaceAll", Title = "Auto Place All", Default = false })
     dt.AddToggle(fy, { Id = "AutoOpenReadyEggs", Title = "Auto Hatch Ready", Default = false })
-    dt.AddDropdown(fy, { Id = "LifecycleRarities", Title = "Lifecycle Rarities", Options = RARITY_NAMES, Multi = true, Default = {} })
-    dt.AddDropdown(fy, { Id = "LifecycleMutations", Title = "Lifecycle Mutations", Options = MUTATION_NAMES, Multi = true, Default = {} })
+    dt.AddDropdown(fy, { Id = "LifecycleRarities", Title = "Lifecycle Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(fy, { Id = "LifecycleMutations", Title = "Lifecycle Mutations", Options = av, Multi = true, Default = {} })
     dt.AddDivider(fy, { Title = "Egg selling" })
     dt.AddToggle(fy, { Id = "AutoSellEggs", Title = "Auto Sell Eggs", Default = false })
-    dt.AddDropdown(fy, { Id = "SellEggRarities", Title = "Sell Rarities", Options = RARITY_NAMES, Multi = true, Default = {} })
+    dt.AddDropdown(fy, { Id = "SellEggRarities", Title = "Sell Rarities", Options = at, Multi = true, Default = {} })
     dt.AddSlider(fy, { Id = "SellEggInterval", Title = "Sell Interval", Min = 1, Max = 120, Default = 8, Step = 1, Suffix = " s" })
 
     dt.AddToggle(fz, { Id = "AutoServerHop", Title = "Auto Server Hop", Default = false })
-    dt.AddDropdown(fz, { Id = "HopMode", Title = "Hop When", Options = HOP_MODE_OPTIONS, Default = "No Matching Eggs" })
+    dt.AddDropdown(fz, { Id = "HopMode", Title = "Hop When", Options = bb, Default = "No Matching Eggs" })
     dt.AddSlider(fz, { Id = "HopValue", Title = "Wait Before Hop", Min = 1, Max = 200, Default = 15, Step = 1 })
     dt.AddButton(fz, { Title = "Hop Now", Text = "Hop", Callback = function()
-        task.spawn(function() hopCooldownUntil = 0; Hub.serverHop("Manual") end)
+        task.spawn(function() cb = 0; r.serverHop("Manual") end)
     end })
 
-    dt.AddParagraph(ga, { Content = "Runs the first ready task in your priority list." })
-    for gb, gc in ipairs(PRIORITY_SLOTS) do
-        dt.AddDropdown(ga, { Id = gc, Title = "Priority " .. gb, Options = TASK_NAMES, Default = TASK_NAMES[gb] })
+    dt.AddParagraph(ga, { Content = "Runs the first ready task in this order." })
+    for gb, gc in ipairs(ba) do
+        dt.AddDropdown(ga, { Id = gc, Title = "Priority " .. gb, Options = az, Default = az[gb] })
     end
 
     local gb = dt.AddTab({ Id = "pets", Title = "Pets" })
@@ -3271,20 +3258,20 @@ do
     dt.AddToggle(gc, { Id = "AutoEquipBest", Title = "Auto Equip Best Pets", Default = false })
     dt.AddToggle(gc, { Id = "AutoDeleteOwnPets", Title = "Hide Own Pet Renders", Default = false })
     dt.AddToggle(gd, { Id = "AutoFusePets", Title = "Auto Fuse Pets", Default = false })
-    dt.AddDropdown(gd, { Id = "FuseRarities", Title = "Fuse Rarities", Options = RARITY_NAMES, Multi = true, Default = {} })
-    dt.AddDropdown(gd, { Id = "FuseMutations", Title = "Fuse Mutations", Options = MUTATION_NAMES, Multi = true, Default = {} })
-    dt.AddDropdown(gd, { Id = "FuseTarget", Title = "Pick Group By", Options = FUSE_TARGET_OPTIONS, Default = "Highest Rarity" })
+    dt.AddDropdown(gd, { Id = "FuseRarities", Title = "Fuse Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(gd, { Id = "FuseMutations", Title = "Fuse Mutations", Options = av, Multi = true, Default = {} })
+    dt.AddDropdown(gd, { Id = "FuseTarget", Title = "Pick Group By", Options = ax, Default = "Highest Rarity" })
     dt.AddToggle(gd, { Id = "FuseKeepMutated", Title = "Never Fuse Mutated", Default = true })
     dt.AddToggle(gd, { Id = "FuseKeepEquipped", Title = "Never Fuse Equipped", Default = true })
     dt.AddToggle(gd, { Id = "FuseAutoReveal", Title = "Auto Complete Reveal", Default = true })
     dt.AddSlider(gd, { Id = "FuseMaxScale", Title = "Maximum Scale to Fuse", Min = 0, Max = 10, Default = 10, Step = 0.1 })
     dt.AddSlider(gd, { Id = "FuseKeepPerCategory", Title = "Keep Per Pet Type", Min = 0, Max = 20, Default = 0, Step = 1 })
     dt.AddSlider(gd, { Id = "FuseInterval", Title = "Fuse Interval", Min = 1, Max = 120, Default = 8, Step = 1, Suffix = " s" })
-    dt.AddButton(gd, { Title = "Fuse Now", Text = "Fuse", Callback = function() task.spawn(function() Hub.runAutoFusePets(true) end) end })
+    dt.AddButton(gd, { Title = "Fuse Now", Text = "Fuse", Callback = function() task.spawn(function() r.runAutoFusePets(true) end) end })
 
     dt.AddToggle(ge, { Id = "AutoSellPets", Title = "Auto Sell Pets", Default = false })
-    dt.AddDropdown(ge, { Id = "SellRarities", Title = "Sell Rarities", Options = RARITY_NAMES, Multi = true, Default = {} })
-    dt.AddDropdown(ge, { Id = "SellMutations", Title = "Sell Mutations", Options = MUTATION_NAMES, Multi = true, Default = {} })
+    dt.AddDropdown(ge, { Id = "SellRarities", Title = "Sell Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(ge, { Id = "SellMutations", Title = "Sell Mutations", Options = av, Multi = true, Default = {} })
     dt.AddToggle(ge, { Id = "SellKeepMutated", Title = "Never Sell Mutated", Default = true })
     dt.AddToggle(ge, { Id = "SellKeepEquipped", Title = "Never Sell Equipped", Default = true })
     dt.AddSlider(ge, { Id = "SellMaxScale", Title = "Maximum Scale to Sell", Min = 0, Max = 10, Default = 10, Step = 0.1 })
@@ -3296,12 +3283,12 @@ do
     local gi = dt.AddSection(gf, { Title = "Equipment" })
     local gj = dt.AddSection(gf, { Title = "Training" })
     dt.AddToggle(gg, { Id = "AutoUpgrades", Title = "Auto Buy Upgrades", Default = false })
-    dt.AddDropdown(gg, { Id = "UpgradeTypes", Title = "Upgrade Types", Options = UPGRADE_TYPES, Multi = true, Default = { "Base", "Treadmill" } })
+    dt.AddDropdown(gg, { Id = "UpgradeTypes", Title = "Upgrade Types", Options = ay, Multi = true, Default = { "Base", "Treadmill" } })
     dt.AddToggle(gh, { Id = "AutoClaimIndex", Title = "Auto Claim Index", Default = false })
     dt.AddToggle(gh, { Id = "AutoClaimGroupReward", Title = "Auto Claim Group Reward", Default = false })
     dt.AddToggle(gh, { Id = "AutoClaimOffline", Title = "Claim Offline Earnings", Default = false })
     dt.AddToggle(gi, { Id = "AutoBuyTrail", Title = "Auto Buy Trail", Default = false })
-    dt.AddDropdown(gi, { Id = "TrailWanted", Title = "Trails", Options = trailNames, Multi = true, Default = {} })
+    dt.AddDropdown(gi, { Id = "TrailWanted", Title = "Trails", Options = be, Multi = true, Default = {} })
     dt.AddToggle(gi, { Id = "AutoEquipBestTrail", Title = "Auto Equip Best Trail", Default = false })
     dt.AddToggle(gi, { Id = "AutoEquipBestGear", Title = "Auto Equip Best Gear", Default = false })
     dt.AddToggle(gj, { Id = "AutoTreadmill", Title = "Auto Treadmill Training", Default = false })
@@ -3327,19 +3314,19 @@ do
     dt.AddDivider(gm, { Title = "Fly" })
     dt.AddToggle(gm, { Id = "Fly", Title = "Fly", Default = false, Callback = function(go)
         if not go then
-            local gp = Hub.getHumanoid(); if gp then gp.PlatformStand = false end
-            local gq = Hub.getRoot()
+            local gp = r.getHumanoid(); if gp then gp.PlatformStand = false end
+            local gq = r.getRoot()
             local gr = gq and gq:FindFirstChild("ApexFlyLV")
             if gr then gr:Destroy() end
         end
     end })
     dt.AddSlider(gm, { Id = "FlySpeed", Title = "Fly Speed", Min = 10, Max = 400, Default = 60, Step = 1 })
-    dt.AddDropdown(gn, { Id = "WaypointTarget", Title = "Waypoint", Options = waypointNames, Default = "Base" })
+    dt.AddDropdown(gn, { Id = "WaypointTarget", Title = "Waypoint", Options = dq, Default = "Base" })
     dt.AddButton(gn, { Title = "Teleport to Waypoint", Text = "Go", Callback = function()
         task.spawn(function()
-            local go = Hub.resolveWaypoint(Hub.optionValue("WaypointTarget", "Base"))
-            if not go then Hub.notify("Waypoint", "Unavailable", "Warning", 3); return end
-            if not Hub.bypassMoveTo(go, nil, Hub.bypassSpeed()) then Hub.notify("Waypoint", "Failed", "Error", 3) end
+            local go = r.resolveWaypoint(r.optionValue("WaypointTarget", "Base"))
+            if not go then r.notify("Waypoint", "Unavailable", "Warning", 3); return end
+            if not r.bypassMoveTo(go, nil, r.bypassSpeed()) then r.notify("Waypoint", "Failed", "Error", 3) end
         end)
     end })
 
@@ -3350,68 +3337,68 @@ do
     local gs = dt.AddSection(go, { Title = "About" })
     dt.AddToggle(gp, { Id = "AntiAfk", Title = "Anti-AFK", Default = true })
     dt.AddToggle(gp, { Id = "AntiGameplayPause", Title = "No Gameplay Paused", Default = true,
-        Callback = function(gt) Hub.applyAntiGameplayPause(gt) end })
+        Callback = function(gt) r.applyAntiGameplayPause(gt) end })
     dt.AddToggle(gp, { Id = "AutoReconnect", Title = "Auto Reconnect", Default = false })
-    dt.AddButton(gp, { Title = "Rejoin Server", Text = "Rejoin", Callback = function() Hub.rejoinServer() end })
+    dt.AddButton(gp, { Title = "Rejoin Server", Text = "Rejoin", Callback = function() r.rejoinServer() end })
     dt.AddButton(gp, { Title = "Copy Join Script", Text = "Copy", Callback = function()
         pcall(function() setclipboard(string.format(
             'game:GetService("TeleportService"):TeleportToPlaceInstance(%d, "%s", game:GetService("Players").LocalPlayer)',
-            game.PlaceId, jobId)) end)
-        Hub.notify("Copied", "Join script copied", "Success", 3)
+            game.PlaceId, bs)) end)
+        r.notify("Copied", "Join script copied", "Success", 3)
     end })
     dt.AddToggle(gq, { Id = "FpsBoost", Title = "FPS Boost", Default = false,
-        Callback = function(gt) if gt then Hub.enableFpsBoost() else Hub.disableFpsBoost() end end })
+        Callback = function(gt) if gt then r.enableFpsBoost() else r.disableFpsBoost() end end })
     dt.AddToggle(gq, { Id = "DisableRendering", Title = "Disable 3D Rendering", Default = false,
-        Callback = function(gt) Hub.applyRendering(gt) end })
+        Callback = function(gt) r.applyRendering(gt) end })
     dt.AddSlider(gq, { Id = "FpsCap", Title = "FPS Cap", Min = 15, Max = 360, Default = 60, Step = 1, Suffix = " fps",
-        Callback = function(gt) Hub.applyFpsCap(gt) end })
+        Callback = function(gt) r.applyFpsCap(gt) end })
     dt.AddToggle(gr, { Id = "WebhookEnabled", Title = "Enable Webhooks", Default = false })
     dt.AddInput(gr, { Id = "WebhookUrl", Title = "Webhook URL", Placeholder = "https://discord.com/api/webhooks/...", Default = "" })
     dt.AddInput(gr, { Id = "WebhookPingId", Title = "Ping User ID", Placeholder = "123456789012345678", Default = "" })
     dt.AddSlider(gr, { Id = "WebhookInterval", Title = "Summary Interval", Min = 1, Max = 180, Default = 15, Step = 1, Suffix = " min" })
     dt.AddToggle(gr, { Id = "WebhookEggSpawns", Title = "List Spawned Eggs", Default = true })
-    dt.AddDropdown(gr, { Id = "WebhookRarities", Title = "Rarities", Options = RARITY_NAMES, Multi = true, Default = {} })
+    dt.AddDropdown(gr, { Id = "WebhookRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
     dt.AddToggle(gr, { Id = "WebhookDisconnectAlerts", Title = "Disconnect Alerts", Default = false })
     dt.AddButton(gr, { Title = "Send Summary Now", Text = "Send", Callback = function()
         task.spawn(function()
-            local gt = Hub.sendSummary()
-            Hub.notify("Webhook", gt and "Sent" or "Failed", gt and "Success" or "Error", 3)
+            local gt = r.sendSummary()
+            r.notify("Webhook", gt and "Sent" or "Failed", gt and "Success" or "Error", 3)
         end)
     end })
     dt.AddParagraph(gs, { Title = "Script Dev", Content = "Apex" })
     dt.AddParagraph(gs, { Title = "UI", Content = "Standalone custom UI" })
     dt.AddParagraph(gs, { Title = "Discord", Content = n })
     dt.AddButton(gs, { Title = "Copy Discord Link", Text = "Copy", Callback = function()
-        pcall(function() setclipboard(DISCORD_LINK) end)
-        Hub.notify("Copied", "Discord link copied", "Success", 3)
+        pcall(function() setclipboard(n) end)
+        r.notify("Copied", "Discord link copied", "Success", 3)
     end })
     dt.AddDivider(gs, { Title = "Danger Zone" })
-    dt.AddButton(gs, { Title = "Unload Script", Text = "Unload", Callback = function() Hub.unload() end })
+    dt.AddButton(gs, { Title = "Unload Script", Text = "Unload", Callback = function() r.unload() end })
 end
 
 -- ============================================================
 -- DASHBOARD REFRESH
 -- ============================================================
 local function fr()
-    if not isRunning then return end
+    if not s then return end
     pcall(function()
         if fq.carryingRow then
-            fq.carryingRow:SetValue(carryingEgg and "Yes" or "No")
-            fq.carryingRow:SetStatus(carryingEgg and "Warning" or "Neutral")
+            fq.carryingRow:SetValue(bu and "Yes" or "No")
+            fq.carryingRow:SetStatus(bu and "Warning" or "Neutral")
         end
-        if fq.runtimeRow then fq.runtimeRow:SetValue(Hub.formatElapsed(os.clock() - scriptStartTime)) end
+        if fq.runtimeRow then fq.runtimeRow:SetValue(r.formatElapsed(os.clock() - cp)) end
         if fq.inventoryProgress then
-            fq.inventoryProgress:SetValue(string.format("%d / %s", Hub.eggInventoryCount(),
-                tostring(eggsModule and eggsModule.MAX_INVENTORY or "?")))
+            fq.inventoryProgress:SetValue(string.format("%d / %s", r.eggInventoryCount(),
+                tostring(w and w.MAX_INVENTORY or "?")))
         end
-        local save = Hub.getSave()
-        if save then
-            if fq.moneyRow then fq.moneyRow:SetValue(Hub.formatNumber(save.Money)) end
-            if fq.speedRow then fq.speedRow:SetValue(Hub.formatNumber(save.SpeedPower)) end
-            if fq.rebirthRow then fq.rebirthRow:SetValue(tostring(save.Rebirth or 0)) end
-            if fq.petsOwnedRow then fq.petsOwnedRow:SetValue(tostring(Hub.countTable(save.Inventory))) end
+        local fs = r.getSave()
+        if fs then
+            if fq.moneyRow then fq.moneyRow:SetValue(r.formatNumber(fs.Money)) end
+            if fq.speedRow then fq.speedRow:SetValue(r.formatNumber(fs.SpeedPower)) end
+            if fq.rebirthRow then fq.rebirthRow:SetValue(tostring(fs.Rebirth or 0)) end
+            if fq.petsOwnedRow then fq.petsOwnedRow:SetValue(tostring(r.countTable(fs.Inventory))) end
         end
-        if fq.stolenRow then fq.stolenRow:SetValue(tostring(stolenEggs)) end
+        if fq.stolenRow then fq.stolenRow:SetValue(tostring(bv)) end
     end)
 end
 fr()
@@ -3419,28 +3406,28 @@ fr()
 -- ============================================================
 -- UNLOAD
 -- ============================================================
-function Hub.unload()
-    if not isRunning then return end
-    isRunning = false
-    pcall(Hub.stopTreadmillTraining)
-    pcall(function() Hub.applyAntiGameplayPause(false) end)
-    pcall(function() Hub.applyRendering(false) end)
-    pcall(Hub.disableFpsBoost)
-    pcall(Hub.clearAllEsp)
-    if espFolder then pcall(function() espFolder:Destroy() end) end
-    for _, connection in ipairs(trackedConnections) do
-        pcall(function() if typeof(connection) == "RBXScriptConnection" then connection:Disconnect() end end)
+function r.unload()
+    if not s then return end
+    s = false
+    pcall(r.stopTreadmillTraining)
+    pcall(function() r.applyAntiGameplayPause(false) end)
+    pcall(function() r.applyRendering(false) end)
+    pcall(r.disableFpsBoost)
+    pcall(r.clearAllEsp)
+    if dh then pcall(function() dh:Destroy() end) end
+    for _, fs in ipairs(br) do
+        pcall(function() if typeof(fs) == "RBXScriptConnection" then fs:Disconnect() end end)
     end
-    Hub.clearTable(trackedConnections)
-    for _, connection in ipairs(dt.__connections) do
-        pcall(function() if typeof(connection) == "RBXScriptConnection" then connection:Disconnect() end end)
+    r.clearTable(br)
+    for _, fs in ipairs(dt.__connections) do
+        pcall(function() if typeof(fs) == "RBXScriptConnection" then fs:Disconnect() end end)
     end
     pcall(function() dy:Destroy() end)
     pcall(function() dz:Destroy() end)
-    GLOBAL_ENV.__APEX_HUB_RUNNING = nil
-    GLOBAL_ENV.__APEX_HUB_SHUTDOWN = nil
+    a.__APEX_HUB_RUNNING = nil
+    a.__APEX_HUB_SHUTDOWN = nil
 end
-GLOBAL_ENV.__APEX_HUB_SHUTDOWN = Hub.unload
+a.__APEX_HUB_SHUTDOWN = r.unload
 
 -- ============================================================
 -- CONNECTIONS
@@ -3451,72 +3438,72 @@ end
 local fu = nil
 local function fv(fw)
     if fu then pcall(function() fu:Disconnect() end); fu = nil end
-    local character = LocalPlayer.Character
-    if not fw or not character then return end
-    for _, descendant in ipairs(character:GetDescendants()) do fs(descendant) end
-    fu = character.DescendantAdded:Connect(fs)
-    Hub.track(fu)
+    local fy = m.Character
+    if not fw or not fy then return end
+    for _, fz in ipairs(fy:GetDescendants()) do fs(fz) end
+    fu = fy.DescendantAdded:Connect(fs)
+    r.track(fu)
 end
 
-Hub.track(UserInputService.JumpRequest:Connect(function()
-    if not isRunning or not Hub.isOn("InfJump") then return end
-    local humanoid = Hub.getHumanoid()
-    if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+r.track(f.JumpRequest:Connect(function()
+    if not s or not r.isOn("InfJump") then return end
+    local fx = r.getHumanoid()
+    if fx then fx:ChangeState(Enum.HumanoidStateType.Jumping) end
 end))
 
-Hub.track(RunService.RenderStepped:Connect(function(fx)
-    if not isRunning or not Hub.isOn("Fly") then return end
-    local root = Hub.getRoot(); local humanoid = Hub.getHumanoid()
-    local camera = Workspace.CurrentCamera
-    if not root or not humanoid or not camera then return end
+r.track(c.RenderStepped:Connect(function(fx)
+    if not s or not r.isOn("Fly") then return end
+    local fy = r.getRoot(); local fz = r.getHumanoid()
+    local ga = h.CurrentCamera
+    if not fy or not fz or not ga then return end
 
-    humanoid.PlatformStand = true
+    fz.PlatformStand = true
 
-    local linearVelocity = root:FindFirstChild("ApexFlyLV")
-    if not linearVelocity then
-        linearVelocity = Instance.new("LinearVelocity")
-        linearVelocity.Name = "ApexFlyLV"
-        linearVelocity.MaxForce = 1e6
-        linearVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
-        local attachment = Instance.new("Attachment")
-        attachment.Name = "ApexFlyAttachment"
-        attachment.Parent = root
-        linearVelocity.Attachment0 = attachment
-        linearVelocity.Parent = root
+    local gb = fy:FindFirstChild("ApexFlyLV")
+    if not gb then
+        gb = Instance.new("LinearVelocity")
+        gb.Name = "ApexFlyLV"
+        gb.MaxForce = 1e6
+        gb.RelativeTo = Enum.ActuatorRelativeTo.World
+        local gc = Instance.new("Attachment")
+        gc.Name = "ApexFlyAttachment"
+        gc.Parent = fy
+        gb.Attachment0 = gc
+        gb.Parent = fy
     end
 
-    local moveVector = Vector3.zero
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + camera.CFrame.LookVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - camera.CFrame.LookVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - camera.CFrame.RightVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + camera.CFrame.RightVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveVector = moveVector + Vector3.new(0, 1, 0) end
-    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveVector = moveVector - Vector3.new(0, 1, 0) end
+    local gc = Vector3.zero
+    if f:IsKeyDown(Enum.KeyCode.W) then gc = gc + ga.CFrame.LookVector end
+    if f:IsKeyDown(Enum.KeyCode.S) then gc = gc - ga.CFrame.LookVector end
+    if f:IsKeyDown(Enum.KeyCode.A) then gc = gc - ga.CFrame.RightVector end
+    if f:IsKeyDown(Enum.KeyCode.D) then gc = gc + ga.CFrame.RightVector end
+    if f:IsKeyDown(Enum.KeyCode.Space) then gc = gc + Vector3.new(0, 1, 0) end
+    if f:IsKeyDown(Enum.KeyCode.LeftControl) then gc = gc - Vector3.new(0, 1, 0) end
 
-    local flySpeed = math.min(tonumber(Hub.optionValue("FlySpeed", 60)) or 60, MAX_SPEED)
-    if moveVector.Magnitude > 0 then
-        linearVelocity.VectorVelocity = moveVector.Unit * flySpeed
+    local gd = math.min(tonumber(r.optionValue("FlySpeed", 60)) or 60, bi)
+    if gc.Magnitude > 0 then
+        gb.VectorVelocity = gc.Unit * gd
     else
-        linearVelocity.VectorVelocity = Vector3.zero
+        gb.VectorVelocity = Vector3.zero
     end
 end))
 
-Hub.track(UserInputService.InputBegan:Connect(function() lastInputTick = tick() end))
-Hub.track(UserInputService.InputChanged:Connect(function(input)
-    local inputType = input.UserInputType
-    if inputType == Enum.UserInputType.MouseMovement or inputType == Enum.UserInputType.Gamepad1 then lastInputTick = tick() end
+r.track(f.InputBegan:Connect(function() ci = tick() end))
+r.track(f.InputChanged:Connect(function(fx)
+    local fy = fx.UserInputType
+    if fy == Enum.UserInputType.MouseMovement or fy == Enum.UserInputType.Gamepad1 then ci = tick() end
 end))
 
-Hub.track(LocalPlayer.CharacterAdded:Connect(function()
-    if not isRunning then return end
+r.track(m.CharacterAdded:Connect(function()
+    if not s then return end
     task.delay(0.35, function()
-        if Hub.stealingEnabled() then Hub.swapStealHumanoid() end
-        if Hub.isOn("NoClip") then fv(true) end
+        if r.stealingEnabled() then r.swapStealHumanoid() end
+        if r.isOn("NoClip") then fv(true) end
     end)
 end))
 
-Hub.track(UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.End then Hub.unload() end
+r.track(f.InputBegan:Connect(function(fx, fy)
+    if not fy and fx.KeyCode == Enum.KeyCode.End then r.unload() end
 end))
 
 -- ============================================================
@@ -3525,52 +3512,52 @@ end))
 local fx = {}
 local fy = false
 local function fz(ga, gb)
-    local now = os.clock()
-    if now < (fx[ga] or 0) then return false end
-    fx[ga] = now + gb
+    local ge = os.clock()
+    if ge < (fx[ga] or 0) then return false end
+    fx[ga] = ge + gb
     return true
 end
 
 local function gc()
-    if taskBusy then return end
-    if Hub.isOn("AutoDropEgg") and carryingEgg then
-        taskBusy = true; pcall(Hub.runAutoDropEgg); taskBusy = false; return
+    if bx then return end
+    if r.isOn("AutoDropEgg") and bu then
+        bx = true; pcall(r.runAutoDropEgg); bx = false; return
     end
-    if Hub.isOn("AutoReturn") and carryingEgg then
-        taskBusy = true; pcall(Hub.runAutoReturn); taskBusy = false
+    if r.isOn("AutoReturn") and bu then
+        bx = true; pcall(r.runAutoReturn); bx = false
     end
 end
 
 local function gd()
-    if taskBusy then return end
-    local order = Hub.priorityOrder()
-    if #order < 1 then return end
-    for _, taskName in ipairs(order) do
-        local task = tasks[taskName]
-        local ready = task and task.Ready()
-        if ready then
-            local lastRunAt = taskLastRunAt[taskName] or 0
-            ready = os.clock() - lastRunAt >= task.Interval
+    if bx then return end
+    local ge = r.priorityOrder()
+    if #ge < 1 then return end
+    for _, gf in ipairs(ge) do
+        local gg = ds[gf]
+        local gh = gg and gg.Ready()
+        if gh then
+            local gi = by[gf] or 0
+            gh = os.clock() - gi >= gg.Interval
         end
-        if ready then
-            taskLastRunAt[taskName] = os.clock()
-            if taskName ~= "Auto Treadmill" and (treadmillTraining or Hub.isDoubleSpeedVisible()) then
-                pcall(Hub.stopTreadmillTraining)
+        if gh then
+            by[gf] = os.clock()
+            if gf ~= "Auto Treadmill" and (bz or r.isDoubleSpeedVisible()) then
+                pcall(r.stopTreadmillTraining)
             end
-            taskBusy = true
-            local ok, result = pcall(task.Run)
-            taskBusy = false
-            if ok and result then return end
+            bx = true
+            local gi, gj = pcall(gg.Run)
+            bx = false
+            if gi and gj then return end
         end
     end
 end
 
-Hub.track(RunService.Heartbeat:Connect(function()
-    if not isRunning then return end
+r.track(c.Heartbeat:Connect(function()
+    if not s then return end
 
     if fz("core", 0.35) then
         task.spawn(function()
-            if Hub.stealingEnabled() then Hub.swapStealHumanoid() end
+            if r.stealingEnabled() then r.swapStealHumanoid() end
             gc()
             gd()
         end)
@@ -3578,222 +3565,109 @@ Hub.track(RunService.Heartbeat:Connect(function()
 
     if fz("dashboard", 2) then
         fr()
-        local noClip = Hub.isOn("NoClip")
-        if noClip ~= fy then fy = noClip; fv(noClip) end
-        if Hub.isOn("WalkSpeedEnabled") then
-            local humanoid = Hub.getHumanoid()
-            if humanoid then
-                humanoid.WalkSpeed = math.min(tonumber(Hub.optionValue("WalkSpeed", 32)) or 32, MAX_SPEED)
+        local ge = r.isOn("NoClip")
+        if ge ~= fy then fy = ge; fv(ge) end
+        if r.isOn("WalkSpeedEnabled") then
+            local gf = r.getHumanoid()
+            if gf then
+                gf.WalkSpeed = math.min(tonumber(r.optionValue("WalkSpeed", 32)) or 32, bi)
             end
         end
-        if Hub.isOn("JumpPowerEnabled") then
-            local humanoid = Hub.getHumanoid()
-            if humanoid then
-                humanoid.UseJumpPower = true
-                humanoid.JumpPower = tonumber(Hub.optionValue("JumpPower", 50)) or 50
+        if r.isOn("JumpPowerEnabled") then
+            local gf = r.getHumanoid()
+            if gf then
+                gf.UseJumpPower = true
+                gf.JumpPower = tonumber(r.optionValue("JumpPower", 50)) or 50
             end
         end
-        if treadmillTraining or Hub.isDoubleSpeedVisible() then
-            if not Hub.isOn("AutoTreadmill") then pcall(Hub.stopTreadmillTraining) end
+        if bz or r.isDoubleSpeedVisible() then
+            if not r.isOn("AutoTreadmill") then pcall(r.stopTreadmillTraining) end
         end
-        if Hub.isOn("AntiGameplayPause") then Hub.applyAntiGameplayPause(true) end
+        if r.isOn("AntiGameplayPause") then r.applyAntiGameplayPause(true) end
     end
 
     if fz("esp", 1.25) then
-        local espEnabled = Hub.isOn("EspWorldEggs") or Hub.isOn("EspCarriedEggs") or Hub.isOn("EspGuards")
-            or Hub.isOn("EspPets") or Hub.isOn("EspPlayers") or Hub.isOn("EspMachines") or Hub.isOn("EspPlots")
-        if espEnabled then pcall(Hub.runEsp)
-        elseif next(espObjects) ~= nil then pcall(Hub.clearAllEsp) end
+        local ge = r.isOn("EspWorldEggs") or r.isOn("EspCarriedEggs") or r.isOn("EspGuards")
+            or r.isOn("EspPets") or r.isOn("EspPlayers") or r.isOn("EspMachines") or r.isOn("EspPlots")
+        if ge then pcall(r.runEsp)
+        elseif next(db) ~= nil then pcall(r.clearAllEsp) end
     end
 
     if fz("pets", 5) then
-        if Hub.isOn("AutoEquipBest") and not taskBusy then pcall(Hub.runAutoEquipBest) end
-        if Hub.isOn("AutoEquipBestTrail") then pcall(Hub.runAutoEquipBestTrail) end
-        if Hub.isOn("AutoEquipBestGear") then pcall(Hub.runAutoEquipBestGear) end
-        if Hub.isOn("AutoDeleteOwnPets") then pcall(Hub.deleteOwnPetRenders) end
+        if r.isOn("AutoEquipBest") and not bx then pcall(r.runAutoEquipBest) end
+        if r.isOn("AutoEquipBestTrail") then pcall(r.runAutoEquipBestTrail) end
+        if r.isOn("AutoEquipBestGear") then pcall(r.runAutoEquipBestGear) end
+        if r.isOn("AutoDeleteOwnPets") then pcall(r.deleteOwnPetRenders) end
     end
 
-    if fz("fuse", tonumber(Hub.optionValue("FuseInterval", 8)) or 8) then
-        if Hub.isOn("AutoFusePets") and not taskBusy and not carryingEgg then
-            taskBusy = true; pcall(Hub.runAutoFusePets); taskBusy = false
+    if fz("fuse", tonumber(r.optionValue("FuseInterval", 8)) or 8) then
+        if r.isOn("AutoFusePets") and not bx and not bu then
+            bx = true; pcall(r.runAutoFusePets); bx = false
         end
     end
 
-    if fz("sellPets", tonumber(Hub.optionValue("SellInterval", 6)) or 6) then
-        if Hub.isOn("AutoSellPets") and not taskBusy and not carryingEgg then pcall(Hub.runAutoSellPets) end
+    if fz("sellPets", tonumber(r.optionValue("SellInterval", 6)) or 6) then
+        if r.isOn("AutoSellPets") and not bx and not bu then pcall(r.runAutoSellPets) end
     end
 
-    if fz("sellEggs", tonumber(Hub.optionValue("SellEggInterval", 8)) or 8) then
-        if Hub.isOn("AutoSellEggs") and not taskBusy and not carryingEgg then
-            taskBusy = true; pcall(Hub.runAutoSellEggs); taskBusy = false
+    if fz("sellEggs", tonumber(r.optionValue("SellEggInterval", 8)) or 8) then
+        if r.isOn("AutoSellEggs") and not bx and not bu then
+            bx = true; pcall(r.runAutoSellEggs); bx = false
         end
     end
 
     if fz("upgrades", 4) then
-        if Hub.isOn("AutoUpgrades") and not carryingEgg then pcall(Hub.runAutoUpgrades) end
-        if Hub.isOn("AutoBuyTrail") and not carryingEgg then pcall(Hub.runAutoBuyTrail) end
+        if r.isOn("AutoUpgrades") and not bu then pcall(r.runAutoUpgrades) end
+        if r.isOn("AutoBuyTrail") and not bu then pcall(r.runAutoBuyTrail) end
     end
 
     if fz("claims", 12) then
-        if Hub.isOn("AutoClaimIndex") then pcall(Hub.runAutoClaimIndex) end
-        if Hub.isOn("AutoClaimOffline") then pcall(Hub.runClaimOfflineEarnings) end
-        if Hub.isOn("AutoClaimGroupReward") then pcall(Hub.runAutoClaimGroupReward) end
+        if r.isOn("AutoClaimIndex") then pcall(r.runAutoClaimIndex) end
+        if r.isOn("AutoClaimOffline") then pcall(r.runClaimOfflineEarnings) end
+        if r.isOn("AutoClaimGroupReward") then pcall(r.runAutoClaimGroupReward) end
     end
 
     if fz("hop", 3) then
-        if Hub.isOn("AutoServerHop") and not taskBusy then pcall(Hub.runServerHop) end
+        if r.isOn("AutoServerHop") and not bx then pcall(r.runServerHop) end
     end
 
     if fz("webhook", 5) then
-        if Hub.isOn("WebhookEnabled") then
-            pcall(Hub.trackWebhookEvents)
-            pcall(Hub.runWebhookSummary)
+        if r.isOn("WebhookEnabled") then
+            pcall(r.trackWebhookEvents)
+            pcall(r.runWebhookSummary)
         end
     end
 
     if fz("session", 4) then
-        if Hub.isOn("AntiAfk") then
-            local lastKeyTime = tick() - lastInputTick
-            local lastJumpTime = tick() - lastAntiAfkJumpTick
-            if (lastKeyTime >= 300 and lastJumpTime >= 60) or (lastKeyTime < 300 and lastJumpTime >= 300) then
+        if r.isOn("AntiAfk") then
+            local ge = tick() - ci
+            local gf = tick() - cj
+            if (ge >= 300 and gf >= 60) or (ge < 300 and gf >= 300) then
                 pcall(function()
-                    local humanoid = Hub.getHumanoid()
-                    if humanoid then
-                        humanoid.Jump = true
-                        lastAntiAfkJumpTick = tick()
+                    local gg = r.getHumanoid()
+                    if gg then
+                        gg.Jump = true
+                        cj = tick()
                     end
                 end)
             end
         end
-        if Hub.isOn("AutoReconnect") or Hub.isOn("WebhookDisconnectAlerts") then
-            local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
-            local overlay = promptGui and promptGui:FindFirstChild("promptOverlay")
-            if overlay then
-                local prompt = overlay:FindFirstChild("ErrorPrompt") or overlay:FindFirstChildWhichIsA("Frame")
-                if prompt and prompt.Visible and tostring(prompt.Name):find("ErrorPrompt") then
-                    Hub.handleDisconnect("Roblox error prompt")
+        if r.isOn("AutoReconnect") or r.isOn("WebhookDisconnectAlerts") then
+            local ge = k:FindFirstChild("RobloxPromptGui")
+            local gf = ge and ge:FindFirstChild("promptOverlay")
+            if gf then
+                local gg = gf:FindFirstChild("ErrorPrompt") or gf:FindFirstChildWhichIsA("Frame")
+                if gg and gg.Visible and tostring(gg.Name):find("ErrorPrompt") then
+                    r.handleDisconnect("Roblox error prompt")
                 end
             end
         end
     end
 end))
 
-Hub.track(RunService.Heartbeat:Connect(function()
-    if not isRunning then return end
+if r.isOn("AntiGameplayPause") then r.applyAntiGameplayPause(true) end
+if r.isOn("FpsBoost") then r.enableFpsBoost() end
+r.applyFpsCap(r.optionValue("FpsCap", 60))
 
-    if fz("core", 0.35) then
-        task.spawn(function()
-            if Hub.stealingEnabled() then Hub.swapStealHumanoid() end
-            gc()
-            gd()
-        end)
-    end
-
-    if fz("dashboard", 2) then
-        fr()
-        local noClip = Hub.isOn("NoClip")
-        if noClip ~= fy then fy = noClip; fv(noClip) end
-        if Hub.isOn("WalkSpeedEnabled") then
-            local humanoid = Hub.getHumanoid()
-            if humanoid then
-                humanoid.WalkSpeed = math.min(tonumber(Hub.optionValue("WalkSpeed", 32)) or 32, MAX_SPEED)
-            end
-        end
-        if Hub.isOn("JumpPowerEnabled") then
-            local humanoid = Hub.getHumanoid()
-            if humanoid then
-                humanoid.UseJumpPower = true
-                humanoid.JumpPower = tonumber(Hub.optionValue("JumpPower", 50)) or 50
-            end
-        end
-        if treadmillTraining or Hub.isDoubleSpeedVisible() then
-            if not Hub.isOn("AutoTreadmill") then pcall(Hub.stopTreadmillTraining) end
-        end
-        if Hub.isOn("AntiGameplayPause") then Hub.applyAntiGameplayPause(true) end
-    end
-
-    if fz("esp", 1.25) then
-        local espEnabled = Hub.isOn("EspWorldEggs") or Hub.isOn("EspCarriedEggs") or Hub.isOn("EspGuards")
-            or Hub.isOn("EspPets") or Hub.isOn("EspPlayers") or Hub.isOn("EspMachines") or Hub.isOn("EspPlots")
-        if espEnabled then pcall(Hub.runEsp)
-        elseif next(espObjects) ~= nil then pcall(Hub.clearAllEsp) end
-    end
-
-    if fz("pets", 5) then
-        if Hub.isOn("AutoEquipBest") and not taskBusy then pcall(Hub.runAutoEquipBest) end
-        if Hub.isOn("AutoEquipBestTrail") then pcall(Hub.runAutoEquipBestTrail) end
-        if Hub.isOn("AutoEquipBestGear") then pcall(Hub.runAutoEquipBestGear) end
-        if Hub.isOn("AutoDeleteOwnPets") then pcall(Hub.deleteOwnPetRenders) end
-    end
-
-    if fz("fuse", tonumber(Hub.optionValue("FuseInterval", 8)) or 8) then
-        if Hub.isOn("AutoFusePets") and not taskBusy and not carryingEgg then
-            taskBusy = true; pcall(Hub.runAutoFusePets); taskBusy = false
-        end
-    end
-
-    if fz("sellPets", tonumber(Hub.optionValue("SellInterval", 6)) or 6) then
-        if Hub.isOn("AutoSellPets") and not taskBusy and not carryingEgg then pcall(Hub.runAutoSellPets) end
-    end
-
-    if fz("sellEggs", tonumber(Hub.optionValue("SellEggInterval", 8)) or 8) then
-        if Hub.isOn("AutoSellEggs") and not taskBusy and not carryingEgg then
-            taskBusy = true; pcall(Hub.runAutoSellEggs); taskBusy = false
-        end
-    end
-
-    if fz("upgrades", 4) then
-        if Hub.isOn("AutoUpgrades") and not carryingEgg then pcall(Hub.runAutoUpgrades) end
-        if Hub.isOn("AutoBuyTrail") and not carryingEgg then pcall(Hub.runAutoBuyTrail) end
-    end
-
-    if fz("claims", 12) then
-        if Hub.isOn("AutoClaimIndex") then pcall(Hub.runAutoClaimIndex) end
-        if Hub.isOn("AutoClaimOffline") then pcall(Hub.runClaimOfflineEarnings) end
-        if Hub.isOn("AutoClaimGroupReward") then pcall(Hub.runAutoClaimGroupReward) end
-    end
-
-    if fz("hop", 3) then
-        if Hub.isOn("AutoServerHop") and not taskBusy then pcall(Hub.runServerHop) end
-    end
-
-    if fz("webhook", 5) then
-        if Hub.isOn("WebhookEnabled") then
-            pcall(Hub.trackWebhookEvents)
-            pcall(Hub.runWebhookSummary)
-        end
-    end
-
-    if fz("session", 4) then
-        if Hub.isOn("AntiAfk") then
-            local lastKeyTime = tick() - lastInputTick
-            local lastJumpTime = tick() - lastAntiAfkJumpTick
-            if (lastKeyTime >= 300 and lastJumpTime >= 60) or (lastKeyTime < 300 and lastJumpTime >= 300) then
-                pcall(function()
-                    local humanoid = Hub.getHumanoid()
-                    if humanoid then
-                        humanoid.Jump = true
-                        lastAntiAfkJumpTick = tick()
-                    end
-                end)
-            end
-        end
-        if Hub.isOn("AutoReconnect") or Hub.isOn("WebhookDisconnectAlerts") then
-            local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
-            local overlay = promptGui and promptGui:FindFirstChild("promptOverlay")
-            if overlay then
-                local prompt = overlay:FindFirstChild("ErrorPrompt") or overlay:FindFirstChildWhichIsA("Frame")
-                if prompt and prompt.Visible and tostring(prompt.Name):find("ErrorPrompt") then
-                    Hub.handleDisconnect("Roblox error prompt")
-                end
-            end
-        end
-    end
-end))
-
-if Hub.isOn("AntiGameplayPause") then Hub.applyAntiGameplayPause(true) end
-if Hub.isOn("FpsBoost") then Hub.enableFpsBoost() end
-Hub.applyFpsCap(Hub.optionValue("FpsCap", 60))
-
-Hub.notify("Apex Hub", "Ready - press the floating icon", "Success", 5)
+r.notify("Apex Hub", "Ready - press the floating icon", "Success", 5)
 if fq.statusRow then fq.statusRow:SetStatus("Success") end
