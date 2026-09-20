@@ -547,14 +547,6 @@ function Hub.placeRoot(root, cframe)
         setCframeSafely(root, cframe)
     end
 end
-function Hub.teleportTo(target)
-    if typeof(target) ~= "Vector3" or not isRunning then return false end
-    local root = Hub.getRoot()
-    if not root then return false end
-    local groundedY = Hub.groundedY(target.X, target.Z, target.Y)
-    Hub.placeRoot(root, CFrame.new(target.X, groundedY, target.Z))
-    return true
-end
 function Hub.groundedY(x, z, fallbackY)
     local laneY = Hub.getLaneY()
     local root = Hub.getRoot()
@@ -989,9 +981,11 @@ function Hub.stealEgg(targetSlot)
     local root = Hub.getRoot()
     if not root or not targetPosition then return false end
 
-    -- 1) Đi tới target
+    -- 1) Đi tới target (bypassMoveTo giống teleport ở tab Player)
     if Hub.isOn("StealByTeleport") then
-        if not Hub.teleportTo(targetPosition) then return false end
+        root = Hub.getRoot()
+        if not root then return false end
+        if not Hub.bypassMoveTo(targetPosition, Hub.stealingEnabled, Hub.bypassSpeed()) then return false end
     elseif not Hub.stealAlong(Hub.buildStealPath(root.Position, targetPosition), Hub.stealingEnabled) then
         return false
     end
@@ -1052,13 +1046,8 @@ function Hub.stealEgg(targetSlot)
         Hub.tryCarryEgg(targetSlot); task.wait(0.05)
     end
 
-    -- 5) Về base (bypass hoặc teleport)
-    if Hub.isOn("StealByTeleport") then
-        local basePosition = Hub.getBasePosition()
-        if basePosition then Hub.teleportTo(basePosition) end
-    else
-        Hub.returnToBaseBypass(Hub.stealingEnabled)
-    end
+    -- 5) Về base bằng bypass
+    Hub.returnToBaseBypass(Hub.stealingEnabled)
 
     -- 6) Confirm vòng hoàn tất
     local returnDeadline = os.clock() + 3
@@ -1082,11 +1071,7 @@ end
 function Hub.runAutoReturn()
     if not carryingEgg then return false end
     local cancel = function() return Hub.isOn("AutoReturn") and carryingEgg end
-    if Hub.isOn("StealByTeleport") then
-        local basePosition = Hub.getBasePosition()
-        if not basePosition then return false end
-        Hub.teleportTo(basePosition)
-    elseif not Hub.returnToBaseBypass(cancel) then return false end
+    if not Hub.returnToBaseBypass(cancel) then return false end
     local root = Hub.getRoot()
     if root and plotApi.IsWorldPositionWithinLocalPlotBounds and plotApi.IsWorldPositionWithinLocalPlotBounds(root.Position) then
         Hub.waitFor(4, 0.15, function() return (not carryingEgg) or (not Hub.isOn("AutoReturn")) end)
