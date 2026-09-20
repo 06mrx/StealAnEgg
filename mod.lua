@@ -45,7 +45,7 @@ pcall(function() m:WaitForChild("PlayerGui", 10) end)
 
 local n = "https://discord.gg/kptjwzKWgX"
 local o  = "rbxassetid://131679774975668"
-local p  = "Apex Hub"
+local p  = "NiCH Hub"
 local q     = "Discord: " .. n
 
 -- ============================================================
@@ -1621,6 +1621,8 @@ function r.stopTreadmillTraining()
         r.dismountTreadmill(); task.wait(0.1)
         if r.isDoubleSpeedVisible() then r.dismountTreadmill() end
     end
+    r.dismountTreadmill(); task.wait(0.1)
+    if r.isDoubleSpeedVisible() then r.dismountTreadmill() end
 end
 function r.clearTreadmill()
     if not (bz or r.isDoubleSpeedVisible()) then return true end
