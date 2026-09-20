@@ -268,7 +268,6 @@ local au = {
 }
 local av = { "Golden", "Rainbow", "Silver" }
 local aw = { "Rarest", "Nearest", "Furthest", "Biggest Size" }
-local stealPickModes = { "Hold 3s", "Hold Fast 1s" }
 local ax = { "Highest Rarity", "Lowest Rarity", "Most Duplicates" }
 local ay = { "Base", "Treadmill" }
 local az = { "Auto Steal Egg", "Auto Place Egg", "Auto Hatch", "Auto Treadmill" }
@@ -992,11 +991,6 @@ function r.pickStealTarget()
     end
     return dv
 end
-function r.stealHoldTime()
-    local mode = r.optionValue("StealPickMode", "Hold 3s")
-    if mode == "Hold Fast 1s" then return 1 end
-    return bp
-end
 function r.stealingEnabled() return r.isOn("AutoStealSelected") or r.isOn("AutoStealAll") or r.isOn("StealBigEggs") end
 function r.eggInventoryCount()
     local dq = r.getSave()
@@ -1056,7 +1050,7 @@ function r.stealEgg(dq)
 
     if not r.stealingEnabled() then return false end
 
-    -- 2) Pick phase (hold duration from StealPickMode)
+    -- 2) Nhặt lần 1
     r.waitFor(bq.GrabDelay, 0.04, function()
         ds = r.getRoot()
         if ds then
@@ -1091,7 +1085,7 @@ function r.stealEgg(dq)
             -- du.AssemblyAngularVelocity = Vector3.zero
             -- c.Heartbeat:Wait()
         end
-        r.holdAtPosition(r.stealHoldTime(), function() return (not bu) and r.stealingEnabled() end)
+        r.holdAtPosition(bp, function() return (not bu) and r.stealingEnabled() end)
     end
 
     -- 4) Hết hold -> không còn đứng chặt (Anchored đã nhả trong holdAtPosition)
@@ -3296,9 +3290,6 @@ do
     dt.AddToggle(fx, { Id = "StealBigEggs", Title = "Steal Big Eggs", Default = false, Callback = function(fa)
         if fa == false and not r.stealingEnabled() then r.stealCleanup() end
     end })
-
-    dt.AddDivider(fx, { Title = "Pick method" })
-    dt.AddDropdown(fx, { Id = "StealPickMode", Title = "Pick Method", Options = stealPickModes, Default = "Hold 3s" })
 
     dt.AddSlider(fx, {
         Id = "StealMoveSpeed",
