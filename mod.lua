@@ -2358,59 +2358,93 @@ fe.Parent = fc
 
 local function ff(fg, fh)
     fh = fh or fg
-    local fk, fl, fm = false, nil, nil
-    du(fh.InputBegan:Connect(function(fn)
-        if fn.UserInputType == Enum.UserInputType.MouseButton1
-        or fn.UserInputType == Enum.UserInputType.Touch then
-            fk = true
-            fl = fn.Position
-            fm = fg.Position
-            fn.Changed:Connect(function()
-                if fn.UserInputState == Enum.UserInputState.End then fk = false end
-            end)
-        end
+    local startDown, startMoved = false, false
+    local pressPos, basePos = nil, nil
+    local function hitTest(pos)
+        local ok, hit = pcall(function()
+            local abs = fh.AbsolutePosition
+            local absSize = fh.AbsoluteSize
+            return pos.X >= abs.X and pos.X <= abs.X + absSize.X
+                and pos.Y >= abs.Y and pos.Y <= abs.Y + absSize.Y
+        end)
+        return ok and hit == true
+    end
+    du(UserInputService.InputBegan:Connect(function(fn)
+        local ut = fn.UserInputType
+        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
+        if not hitTest(fn.Position) then return end
+        startDown = true
+        startMoved = false
+        pressPos = fn.Position
+        basePos = fg.Position
     end))
     du(UserInputService.InputChanged:Connect(function(fn)
-        if fk and (fn.UserInputType == Enum.UserInputType.MouseMovement
-        or fn.UserInputType == Enum.UserInputType.Touch) then
-            local fo = fn.Position - fl
+        local ut = fn.UserInputType
+        if ut ~= Enum.UserInputType.MouseMovement and ut ~= Enum.UserInputType.Touch then return end
+        if not startDown or not pressPos then return end
+        local delta = fn.Position - pressPos
+        if not startMoved and (math.abs(delta.X) > 4 or math.abs(delta.Y) > 4) then startMoved = true end
+        if startMoved then
             fg.Position = UDim2.new(
-                fm.X.Scale, fm.X.Offset + fo.X,
-                fm.Y.Scale, fm.Y.Offset + fo.Y
+                basePos.X.Scale, basePos.X.Offset + delta.X,
+                basePos.Y.Scale, basePos.Y.Offset + delta.Y
             )
         end
+    end))
+    du(UserInputService.InputEnded:Connect(function(fn)
+        local ut = fn.UserInputType
+        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
+        startDown = false
+        startMoved = false
+        pressPos = nil
+        basePos = nil
     end))
 end
 ff(eg, eq)
 
 do
-    local fi, fj, fk, fl = false, nil, nil, false
-    du(ea.InputBegan:Connect(function(fm)
-        if fm.UserInputType == Enum.UserInputType.MouseButton1
-        or fm.UserInputType == Enum.UserInputType.Touch then
-            fi = true
-            fl = false
-            fj = fm.Position
-            fk = ea.Position
-            fm.Changed:Connect(function()
-                if fm.UserInputState == Enum.UserInputState.End then fi = false end
-            end)
-        end
+    local iconDown, iconMoved = false, false
+    local pressPos, basePos = nil, nil
+    local function iconHitTest(pos)
+        local ok, hit = pcall(function()
+            local abs = ea.AbsolutePosition
+            local absSize = ea.AbsoluteSize
+            return pos.X >= abs.X and pos.X <= abs.X + absSize.X
+                and pos.Y >= abs.Y and pos.Y <= abs.Y + absSize.Y
+        end)
+        return ok and hit == true
+    end
+    du(UserInputService.InputBegan:Connect(function(input)
+        local ut = input.UserInputType
+        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
+        if not iconHitTest(input.Position) then return end
+        iconDown = true
+        iconMoved = false
+        pressPos = input.Position
+        basePos = ea.Position
     end))
-    du(UserInputService.InputChanged:Connect(function(fm)
-        if fi and (fm.UserInputType == Enum.UserInputType.MouseMovement
-        or fm.UserInputType == Enum.UserInputType.Touch) then
-            local fn = fm.Position - fj
-            if math.abs(fn.X) > 4 or math.abs(fn.Y) > 4 then fl = true end
+    du(UserInputService.InputChanged:Connect(function(input)
+        local ut = input.UserInputType
+        if ut ~= Enum.UserInputType.MouseMovement and ut ~= Enum.UserInputType.Touch then return end
+        if not iconDown or not pressPos then return end
+        local delta = input.Position - pressPos
+        if not iconMoved and (math.abs(delta.X) > 4 or math.abs(delta.Y) > 4) then iconMoved = true end
+        if iconMoved then
             ea.Position = UDim2.new(
-                fk.X.Scale, fk.X.Offset + fn.X,
-                fk.Y.Scale, fk.Y.Offset + fn.Y
+                basePos.X.Scale, basePos.X.Offset + delta.X,
+                basePos.Y.Scale, basePos.Y.Offset + delta.Y
             )
         end
     end))
-    du(ea.MouseButton1Click:Connect(function()
-        if fl then return end
-        eg.Visible = not eg.Visible
+    du(UserInputService.InputEnded:Connect(function(input)
+        local ut = input.UserInputType
+        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
+        if not iconDown then return end
+        if not iconMoved then eg.Visible = not eg.Visible end
+        iconDown = false
+        iconMoved = false
+        pressPos = nil
+        basePos = nil
     end))
     du(ea.MouseEnter:Connect(function()
         TweenService:Create(ea, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(28, 28, 34), BackgroundTransparency = 0 }):Play()
