@@ -259,6 +259,7 @@ local au = {
 }
 local av = { "Golden", "Rainbow", "Silver" }
 local aw = { "Rarest", "Nearest", "Furthest", "Biggest Size" }
+local stealPickModes = { "Hold 3s", "Instant Nearest" }
 local ax = { "Highest Rarity", "Lowest Rarity", "Most Duplicates" }
 local ay = { "Base", "Treadmill" }
 local az = { "Auto Steal Egg", "Auto Place Egg", "Auto Hatch", "Auto Treadmill" }
@@ -600,6 +601,7 @@ function r.swapStealHumanoid()
     return true
 end
 
+local origWalkSpeed, origJumpPower, origUseJumpPower = nil, nil, nil
 function r.stealCleanup()
     local part = r.getRoot()
     if part then
@@ -613,14 +615,29 @@ function r.stealCleanup()
             end
         end
     end
-    local hum = r.getHumanoid()
+
+    local hum = r.prepareStealHumanoid()
     if hum then
         hum.Sit = false
         hum.PlatformStand = false
         hum.AutoRotate = true
-        if not r.isOn("WalkSpeedEnabled") then hum.WalkSpeed = 16 end
-        if not r.isOn("JumpPowerEnabled") then hum.JumpPower = 50 end
+        if origWalkSpeed ~= nil then hum.WalkSpeed = origWalkSpeed end
+        if origJumpPower ~= nil then hum.JumpPower = origJumpPower end
+        if origUseJumpPower ~= nil then hum.UseJumpPower = origUseJumpPower end
     end
+
+    task.delay(0.2, function()
+        local char = m.Character
+        if not char then return end
+        for _, item in ipairs(char:GetDescendants()) do
+            if item:IsA("LocalScript") then
+                pcall(function()
+                    item.Disabled = true
+                    item.Disabled = false
+                end)
+            end
+        end
+    end)
     return true
 end
 
@@ -629,6 +646,12 @@ function r.prepareStealHumanoid()
     if not dq then return nil end
     local dr = dq:FindFirstChildOfClass("Humanoid")
     if not dr then return nil end
+
+    if origWalkSpeed == nil then
+        origWalkSpeed = dr.WalkSpeed
+        origJumpPower = dr.JumpPower
+        origUseJumpPower = dr.UseJumpPower
+    end
 
     local ds = h.CurrentCamera
     local dt = ds and ds.CFrame or nil
@@ -960,6 +983,26 @@ function r.pickStealTarget()
     end
     return dv
 end
+function r.stealPickMode()
+    local mode = r.optionValue("StealPickMode", "Hold 3s")
+    if mode == "Instant Nearest" then return mode end
+    return "Hold 3s"
+end
+function r.nearestEggInProximity(dq, dr)
+    local ds = r.getRoot()
+    if not ds then return dq end
+    if dq then
+        local dt = r.getSlotEggPosition(dq)
+        if dt and (ds.Position - dt).Magnitude <= dr then return dq end
+    end
+    local du, dv = nil, math.huge
+    for _, dx in ipairs(dg and dg:GetChildren() or {}) do
+        local dy = r.getSlotEggPosition(dx)
+        local dz = dy and (ds.Position - dy).Magnitude or math.huge
+        if dz <= dr and dz < dv then du, dv = dx, dz end
+    end
+    return du or dq
+end
 function r.stealingEnabled() return r.isOn("AutoStealSelected") or r.isOn("AutoStealAll") or r.isOn("StealBigEggs") end
 function r.eggInventoryCount()
     local dq = r.getSave()
@@ -1019,53 +1062,84 @@ function r.stealEgg(dq)
 
     if not r.stealingEnabled() then return false end
 
-    -- 2) Nhặt lần 1
-    r.waitFor(bq.GrabDelay, 0.04, function()
-        ds = r.getRoot()
-        if ds then
-            local dt = r.groundedY(dr.X, dr.Z, dr.Y)
-            r.placeRoot(ds, CFrame.new(dr.X, dt, dr.Z))
-        end
-        if not r.stealingEnabled() then return true end
-        if not bu then r.tryCarryEgg(dq) end
-        return bu == true
-    end)
+    -- 2) Pick phase (mode from StealPickMode)
+    if r.stealPickMode() ~= "Instant Nearest" then
+        -- ---- Hold 3s (default) ----
+        r.waitFor(bq.GrabDelay, 0.04, function()
+            ds = r.getRoot()
+            if ds then
+                local dt = r.groundedY(dr.X, dr.Z, dr.Y)
+                r.placeRoot(ds, CFrame.new(dr.X, dt, dr.Z))
+            end
+            if not r.stealingEnabled() then return true end
+            if not bu then r.tryCarryEgg(dq) end
+            return bu == true
+        end)
 
-    local dt = os.clock() + 2.5
-    while s and r.stealingEnabled() and not bu and os.clock() < dt do
+        local dt = os.clock() + 2.5
+        while s and r.stealingEnabled() and not bu and os.clock() < dt do
+            ds = r.getRoot()
+            if ds then
+                local du = r.groundedY(dr.X, dr.Z, dr.Y)
+                r.placeRoot(ds, CFrame.new(dr.X, du, dr.Z))
+            end
+            r.tryCarryEgg(dq)
+            if bu then break end
+            task.wait(0.05)
+        end
+
+        if not bu then return false end
+
+        -- 3) Đứng chặt 3s (Anchored + zero velocity)
+        do
+            local du = r.getRoot()
+            if du then
+                pcall(function() du.Anchored = true end)
+                du.AssemblyLinearVelocity  = Vector3.zero
+                du.AssemblyAngularVelocity = Vector3.zero
+                c.Heartbeat:Wait()
+            end
+        end
+        r.holdAtPosition(bp, r.stealingEnabled)
+
+        -- 4) Hết 3s -> không còn đứng chặt (Anchored đã nhả trong holdAtPosition)
+        if not s or not r.stealingEnabled() then return false end
+
+        -- Nhặt lần 2
+        if not bu then r.tryCarryEgg(dq); task.wait(0.1) end
+        local du = os.clock() + 1.5
+        while s and r.stealingEnabled() and not bu and os.clock() < du do
+            r.tryCarryEgg(dq); task.wait(0.05)
+        end
+    else
+        -- ---- Instant Nearest: scan proximity, fire 2x ----
         ds = r.getRoot()
         if ds then
             local du = r.groundedY(dr.X, dr.Z, dr.Y)
             r.placeRoot(ds, CFrame.new(dr.X, du, dr.Z))
         end
-        r.tryCarryEgg(dq)
-        if bu then break end
-        task.wait(0.05)
+        local radius = tonumber(r.optionValue("StealPickRange", 6)) or 6
+        local target = dq
+        local du = os.clock() + 2.5
+        while s and r.stealingEnabled() and not bu and os.clock() < du do
+            target = r.nearestEggInProximity(target, radius) or target
+            if not bu then r.tryCarryEgg(target) end
+            if not bu then
+                task.wait(0.1)
+                ds = r.getRoot()
+                if ds then
+                    local dv = r.groundedY(dr.X, dr.Z, dr.Y)
+                    r.placeRoot(ds, CFrame.new(dr.X, dv, dr.Z))
+                end
+                r.tryCarryEgg(target)
+            end
+            if bu then break end
+            task.wait(0.06)
+        end
+        if not bu then r.tryCarryEgg(target) end
     end
 
     if not bu then return false end
-
-    -- 3) Đứng chặt 3s (Anchored + zero velocity)
-    do
-        local du = r.getRoot()
-        if du then
-            pcall(function() du.Anchored = true end)
-            du.AssemblyLinearVelocity  = Vector3.zero
-            du.AssemblyAngularVelocity = Vector3.zero
-            c.Heartbeat:Wait()
-        end
-    end
-    r.holdAtPosition(bp, r.stealingEnabled)
-
-    -- 4) Hết 3s -> không còn đứng chặt (Anchored đã nhả trong holdAtPosition)
-    if not s or not r.stealingEnabled() then return false end
-
-    -- Nhặt lần 2
-    if not bu then r.tryCarryEgg(dq); task.wait(0.1) end
-    local du = os.clock() + 1.5
-    while s and r.stealingEnabled() and not bu and os.clock() < du do
-        r.tryCarryEgg(dq); task.wait(0.05)
-    end
 
     -- 5) Về base bằng bypass
     r.returnToBaseBypass(r.stealingEnabled)
@@ -3229,6 +3303,10 @@ do
     dt.AddToggle(fx, { Id = "StealBigEggs", Title = "Steal Big Eggs", Default = false, Callback = function(fa)
         if fa == false and not r.stealingEnabled() then r.stealCleanup() end
     end })
+
+    dt.AddDivider(fx, { Title = "Pick method" })
+    dt.AddDropdown(fx, { Id = "StealPickMode", Title = "Pick Method", Options = stealPickModes, Default = "Hold 3s" })
+    dt.AddSlider(fx, { Id = "StealPickRange", Title = "Instant Pick Range", Min = 2, Max = 15, Default = 6, Step = 1, Suffix = " studs" })
 
     dt.AddSlider(fx, {
         Id = "StealMoveSpeed",
