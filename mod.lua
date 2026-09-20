@@ -1111,6 +1111,7 @@ end
 
 function r.runAutoSteal()
     if bu or r.eggInventoryFull() then return false end
+    if bz or r.isDoubleSpeedVisible() then pcall(r.clearTreadmill) end
     local dq = r.pickStealTarget()
     if not dq then return false end
     return r.stealEgg(dq)
@@ -1620,6 +1621,19 @@ function r.stopTreadmillTraining()
         r.dismountTreadmill(); task.wait(0.1)
         if r.isDoubleSpeedVisible() then r.dismountTreadmill() end
     end
+end
+function r.clearTreadmill()
+    if not (bz or r.isDoubleSpeedVisible()) then return true end
+    pcall(r.stopTreadmillTraining)
+    task.wait(0.15)
+    pcall(r.dismountTreadmill)
+    task.wait(0.15)
+    local base = r.getBasePosition()
+    if base then
+        pcall(function() r.bypassMoveTo(Vector3.new(base.X, base.Y + 3, base.Z), nil, r.bypassSpeed()) end)
+        task.wait(0.15)
+    end
+    return not (bz or r.isDoubleSpeedVisible())
 end
 function r.canAutoTreadmill() return r.isOn("AutoTreadmill") and not bu end
 function r.runAutoTreadmillTraining()
@@ -3759,5 +3773,5 @@ if r.isOn("AntiGameplayPause") then r.applyAntiGameplayPause(true) end
 if r.isOn("FpsBoost") then r.enableFpsBoost() end
 r.applyFpsCap(r.optionValue("FpsCap", 60))
 
-r.notify("Apex Hubbb", "Ready - press the floating icon", "Success", 5)
+r.notify("NiCH HUB", "Ready - press the floating icon", "Success", 5)
 if fq.statusRow then fq.statusRow:SetStatus("Success") end
