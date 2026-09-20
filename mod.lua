@@ -2261,7 +2261,7 @@ end
 -- WINDOW
 -- ============================================================
 local vp = h.CurrentCamera and h.CurrentCamera.ViewportSize
-local winW, winH = 640, 400
+local winW, winH = 640, 500
 if vp then
     winH = math.min(winH, math.max(320, vp.Y - 80))
     winW = math.min(winW, math.max(560, vp.X - 40))
@@ -2272,7 +2272,7 @@ local Window = WindUI:CreateWindow({
     Author = q,
     Folder = "NiCHHub",
     ToggleKey = Enum.KeyCode.LeftControl,
-    Theme = "Dark",
+    Theme = "Violet",
     Size = UDim2.fromOffset(winW, winH),
     MinSize = Vector2.new(560, 350),
     MaxSize = Vector2.new(850, 560),
