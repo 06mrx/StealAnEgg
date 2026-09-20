@@ -1111,7 +1111,11 @@ end
 
 function r.runAutoSteal()
     if bu or r.eggInventoryFull() then return false end
-    if bz or r.isDoubleSpeedVisible() then pcall(r.clearTreadmill) end
+    pcall(function()
+        local dq = game:GetService("ReplicatedStorage").Packages.Networking["RF/Treadmill/AskDoff"]
+        if dq then dq:InvokeServer() end
+    end)
+    task.wait(0.1)
     local dq = r.pickStealTarget()
     if not dq then return false end
     return r.stealEgg(dq)
@@ -1621,22 +1625,7 @@ function r.stopTreadmillTraining()
         r.dismountTreadmill(); task.wait(0.1)
         if r.isDoubleSpeedVisible() then r.dismountTreadmill() end
     end
-    r.dismountTreadmill(); task.wait(0.1)
-    if r.isDoubleSpeedVisible() then r.dismountTreadmill() end
-end
-function r.clearTreadmill()
-    if not (bz or r.isDoubleSpeedVisible()) then return true end
-    pcall(r.stopTreadmillTraining)
-    task.wait(0.15)
-    pcall(r.dismountTreadmill)
-    task.wait(0.15)
-    local base = r.getBasePosition()
-    if base then
-        pcall(function() r.bypassMoveTo(Vector3.new(base.X, base.Y + 3, base.Z), nil, r.bypassSpeed()) end)
-        task.wait(0.15)
     end
-    return not (bz or r.isDoubleSpeedVisible())
-end
 function r.canAutoTreadmill() return r.isOn("AutoTreadmill") and not bu end
 function r.runAutoTreadmillTraining()
     local dq = r.getTreadmillStand()
