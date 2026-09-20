@@ -1112,28 +1112,38 @@ function r.stealEgg(dq)
             r.tryCarryEgg(dq); task.wait(0.05)
         end
     else
-        -- ---- Instant Nearest: scan proximity, fire 2x ----
+        -- ---- Instant Nearest: fire -> 3s delay -> fire lagi ----
         ds = r.getRoot()
         if ds then
             local du = r.groundedY(dr.X, dr.Z, dr.Y)
             r.placeRoot(ds, CFrame.new(dr.X, du, dr.Z))
         end
         local radius = tonumber(r.optionValue("StealPickRange", 6)) or 6
-        local target = dq
-        local du = os.clock() + 2.5
-        while s and r.stealingEnabled() and not bu and os.clock() < du do
-            target = r.nearestEggInProximity(target, radius) or target
-            if not bu then r.tryCarryEgg(target) end
-            if not bu then
-                task.wait(0.1)
+        local target = r.nearestEggInProximity(dq, radius) or dq
+        -- fire lần 1
+        if not bu then r.tryCarryEgg(target) end
+        -- delay 3s, đứng yên cạnh telur
+        if not bu then
+            local du = os.clock() + 3
+            while s and r.stealingEnabled() and not bu and os.clock() < du do
                 ds = r.getRoot()
                 if ds then
                     local dv = r.groundedY(dr.X, dr.Z, dr.Y)
                     r.placeRoot(ds, CFrame.new(dr.X, dv, dr.Z))
                 end
-                r.tryCarryEgg(target)
+                task.wait(0.1)
             end
-            if bu then break end
+        end
+        -- fire lagi (scan proximity) sampai konfirm
+        local du = os.clock() + 2
+        while s and r.stealingEnabled() and not bu and os.clock() < du do
+            target = r.nearestEggInProximity(target, radius) or target
+            ds = r.getRoot()
+            if ds then
+                local dv = r.groundedY(dr.X, dr.Z, dr.Y)
+                r.placeRoot(ds, CFrame.new(dr.X, dv, dr.Z))
+            end
+            r.tryCarryEgg(target)
             task.wait(0.06)
         end
         if not bu then r.tryCarryEgg(target) end
