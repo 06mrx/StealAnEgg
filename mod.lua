@@ -207,6 +207,15 @@ local ap = {
     AssetInventory = {
         SELL_ASSET = r.remoteFrom(ai, "PetSatchel", "SellPet")
             or r.findRemoteContains("SellPet") or r.findRemoteContains("SELL_ASSET"),
+        SELL_SELECTION = (function()
+            local pkg = i:FindFirstChild("Packages")
+            local net = pkg and pkg:FindFirstChild("Networking")
+            local ev = net and net:FindFirstChild("RE/PetSatchel/SellSelection")
+            if ev and (ev:IsA("RemoteEvent") or ev:IsA("RemoteFunction")) then return ev end
+            return r.findRemote("RE/PetSatchel/SellSelection")
+                or r.remoteFrom(ai, "PetSatchel", "SellSelection")
+                or r.findRemoteContains("SellSelection")
+        end)(),
     },
     OfflineAssets = {
         GET_SUMMARY = r.remoteFrom(ai, "AwayEarnings", "FetchSummary") or r.findRemoteContains("FetchSummary"),
@@ -1307,11 +1316,41 @@ function r.getSellablePets()
     end
     return ds
 end
-function r.runAutoSellPets()
-    for _, dq in ipairs(r.getSellablePets()) do
-        if not s or not r.isOn("AutoSellPets") or bu then return end
-        r.sellUid(dq); task.wait(0.15)
+function r.sellSelectionBatch(assets, eggs)
+    assets = typeof(assets) == "table" and assets or {}
+    eggs = typeof(eggs) == "table" and eggs or {}
+    local total = #assets + #eggs
+    if total == 0 then return true end
+    local ev = ap.AssetInventory.SELL_SELECTION
+    if ev then
+        local ok = pcall(function()
+            if ev:IsA("RemoteFunction") then
+                ev:InvokeServer({ Assets = assets, Eggs = eggs })
+            else
+                ev:FireServer({ Assets = assets, Eggs = eggs })
+            end
+        end)
+        if ok then
+            return r.waitFor(3, 0.1, function()
+                local dr = r.getSave(); if not dr then return false end
+                local inv = dr.Inventory or {}
+                local einv = dr.EggInventory or {}
+                local removed = 0
+                for _, uid in ipairs(assets) do if inv[uid] == nil then removed = removed + 1 end end
+                for _, uid in ipairs(eggs) do if einv[uid] == nil then removed = removed + 1 end end
+                return removed >= math.max(1, math.floor(total * 0.8))
+            end)
+        end
     end
+    for _, uid in ipairs(assets) do pcall(r.sellUid, uid); task.wait(0.15) end
+    for _, uid in ipairs(eggs) do pcall(r.sellUid, uid); task.wait(0.15) end
+    return true
+end
+function r.runAutoSellPets()
+    local uids = r.getSellablePets()
+    if #uids == 0 then return end
+    r.sellSelectionBatch(uids, {})
+    task.wait(0.1)
 end
 function r.getSellableEggUids()
     local dq = r.getSave()
@@ -1331,12 +1370,10 @@ function r.getSellableEggUids()
     return ds
 end
 function r.runAutoSellEggs()
-    for _, dq in ipairs(r.getSellableEggUids()) do
-        if not s or not r.isOn("AutoSellEggs") or bu then return end
-        if aj.RequestEquipTool then pcall(aj.RequestEquipTool, dq) end
-        task.wait(0.15)
-        r.sellUid(dq); task.wait(0.15)
-    end
+    local uids = r.getSellableEggUids()
+    if #uids == 0 then return end
+    r.sellSelectionBatch({}, uids)
+    task.wait(0.1)
 end
 function r.fuseGroups(dq)
     local dr = dq and dq.Inventory
