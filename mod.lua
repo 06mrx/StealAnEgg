@@ -1062,7 +1062,7 @@ function r.stealEgg(dq)
         return bu == true
     end)
 
-    local dt = os.clock() + 2.5
+    local dt = os.clock() + 1.5
     while s and r.stealingEnabled() and not bu and os.clock() < dt do
         ds = r.getRoot()
         if ds then
@@ -1093,7 +1093,7 @@ function r.stealEgg(dq)
 
     -- Nhặt lần 2
     if not bu then r.tryCarryEgg(dq); task.wait(0.1) end
-    local du = os.clock() + 1.5
+    local du = os.clock() + 0.5
     while s and r.stealingEnabled() and not bu and os.clock() < du do
         r.tryCarryEgg(dq); task.wait(0.05)
     end
@@ -3759,5 +3759,5 @@ if r.isOn("AntiGameplayPause") then r.applyAntiGameplayPause(true) end
 if r.isOn("FpsBoost") then r.enableFpsBoost() end
 r.applyFpsCap(r.optionValue("FpsCap", 60))
 
-r.notify("Apex Hubb", "Ready - press the floating icon", "Success", 5)
+r.notify("Apex Hubbb", "Ready - press the floating icon", "Success", 5)
 if fq.statusRow then fq.statusRow:SetStatus("Success") end
