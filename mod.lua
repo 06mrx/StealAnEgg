@@ -1122,26 +1122,24 @@ function r.stealEgg(dq)
         local target = r.nearestEggInProximity(dq, radius) or dq
         -- fire lần 1
         if not bu then r.tryCarryEgg(target) end
-        -- delay 3s, đứng yên cạnh telur
-        if not bu then
-            local du = os.clock() + 3
-            while s and r.stealingEnabled() and not bu and os.clock() < du do
-                ds = r.getRoot()
-                if ds then
-                    local dv = r.groundedY(dr.X, dr.Z, dr.Y)
-                    r.placeRoot(ds, CFrame.new(dr.X, dv, dr.Z))
-                end
-                task.wait(0.1)
-            end
-        end
-        -- fire lagi (scan proximity) sampai konfirm
-        local du = os.clock() + 2
-        while s and r.stealingEnabled() and not bu and os.clock() < du do
-            target = r.nearestEggInProximity(target, radius) or target
+        -- delay 3s: chờ đủ 3s để server lock telur (dù đã carry hay chưa)
+        local du = os.clock() + 3
+        while s and r.stealingEnabled() and os.clock() < du do
             ds = r.getRoot()
             if ds then
                 local dv = r.groundedY(dr.X, dr.Z, dr.Y)
                 r.placeRoot(ds, CFrame.new(dr.X, dv, dr.Z))
+            end
+            task.wait(0.1)
+        end
+        -- fire lại (scan proximity) sampai konfirm
+        local dv = os.clock() + 2
+        while s and r.stealingEnabled() and not bu and os.clock() < dv do
+            target = r.nearestEggInProximity(target, radius) or target
+            ds = r.getRoot()
+            if ds then
+                local dw = r.groundedY(dr.X, dr.Z, dr.Y)
+                r.placeRoot(ds, CFrame.new(dr.X, dw, dr.Z))
             end
             r.tryCarryEgg(target)
             task.wait(0.06)
