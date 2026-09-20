@@ -600,6 +600,30 @@ function r.swapStealHumanoid()
     return true
 end
 
+function r.stealCleanup()
+    local part = r.getRoot()
+    if part then
+        pcall(function() part.Anchored = false end)
+        pcall(function() part.AssemblyLinearVelocity = Vector3.zero end)
+        pcall(function() part.AssemblyAngularVelocity = Vector3.zero end)
+        for _, item in ipairs(part:GetChildren()) do
+            local nm = item.Name
+            if nm == "ApexBypassMove" or nm == "ApexBypassGyro" or nm == "ApexFlyLV" then
+                pcall(function() item:Destroy() end)
+            end
+        end
+    end
+    local hum = r.getHumanoid()
+    if hum then
+        hum.Sit = false
+        hum.PlatformStand = false
+        hum.AutoRotate = true
+        if not r.isOn("WalkSpeedEnabled") then hum.WalkSpeed = 16 end
+        if not r.isOn("JumpPowerEnabled") then hum.JumpPower = 50 end
+    end
+    return true
+end
+
 function r.prepareStealHumanoid()
     local dq = m.Character
     if not dq then return nil end
@@ -3196,9 +3220,15 @@ do
     local fz = dt.AddSection(fw, { Title = "Server Hop" })
     local ga = dt.AddSection(fw, { Title = "Task Order" })
 
-    dt.AddToggle(fx, { Id = "AutoStealSelected", Title = "Auto Steal Selected", Description = "Use filters below", Default = false })
-    dt.AddToggle(fx, { Id = "AutoStealAll", Title = "Auto Steal All", Description = "Ignore rarity/mutation", Default = false })
-    dt.AddToggle(fx, { Id = "StealBigEggs", Title = "Steal Big Eggs", Default = false })
+    dt.AddToggle(fx, { Id = "AutoStealSelected", Title = "Auto Steal Selected", Description = "Use filters below", Default = false, Callback = function(fa)
+        if fa == false and not r.stealingEnabled() then r.stealCleanup() end
+    end })
+    dt.AddToggle(fx, { Id = "AutoStealAll", Title = "Auto Steal All", Description = "Ignore rarity/mutation", Default = false, Callback = function(fa)
+        if fa == false and not r.stealingEnabled() then r.stealCleanup() end
+    end })
+    dt.AddToggle(fx, { Id = "StealBigEggs", Title = "Steal Big Eggs", Default = false, Callback = function(fa)
+        if fa == false and not r.stealingEnabled() then r.stealCleanup() end
+    end })
 
     dt.AddSlider(fx, {
         Id = "StealMoveSpeed",
@@ -3409,6 +3439,7 @@ fr()
 function r.unload()
     if not s then return end
     s = false
+    pcall(r.stealCleanup)
     pcall(r.stopTreadmillTraining)
     pcall(function() r.applyAntiGameplayPause(false) end)
     pcall(function() r.applyRendering(false) end)
