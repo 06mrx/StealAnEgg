@@ -2268,6 +2268,12 @@ local Window = WindUI:CreateWindow({
 -- ============================================================
 -- RENDERER ADAPTERS
 -- ============================================================
+-- ============================================================
+-- RENDERER ADAPTERS
+-- ============================================================
+dt.elements = dt.elements or {}
+dt.defaults = dt.defaults or {}
+
 function dt.AddTab(cfg)
     return Window:Tab({ Title = cfg.Title })
 end
@@ -2279,15 +2285,16 @@ end
 function dt.AddToggle(sec, cfg)
     local def = cfg.Default == true
     dt.__state[cfg.Id] = def
-    return sec:Toggle({
+    dt.defaults[cfg.Id] = def
+    if cfg.Callback then dt.OnChange(cfg.Id, cfg.Callback) end
+    local el = sec:Toggle({
         Title = cfg.Title,
         Desc = cfg.Description,
         Value = def,
-        Callback = function(v)
-            dt.SetState(cfg.Id, v, true)
-            if cfg.Callback then pcall(cfg.Callback, v) end
-        end,
+        Callback = function(v) dt.SetState(cfg.Id, v, true) end,
     })
+    dt.elements[cfg.Id] = el
+    return el
 end
 
 function dt.AddSlider(sec, cfg)
@@ -2295,15 +2302,16 @@ function dt.AddSlider(sec, cfg)
     local mx = tonumber(cfg.Max) or 100
     local def = math.clamp(tonumber(cfg.Default) or mn, mn, mx)
     dt.__state[cfg.Id] = def
-    return sec:Slider({
+    dt.defaults[cfg.Id] = def
+    if cfg.Callback then dt.OnChange(cfg.Id, cfg.Callback) end
+    local el = sec:Slider({
         Title = cfg.Title,
         Value = { Min = mn, Max = mx, Default = def },
         Step = tonumber(cfg.Step) or 1,
-        Callback = function(v)
-            dt.SetState(cfg.Id, v, true)
-            if cfg.Callback then pcall(cfg.Callback, v) end
-        end,
+        Callback = function(v) dt.SetState(cfg.Id, v, true) end,
     })
+    dt.elements[cfg.Id] = el
+    return el
 end
 
 function dt.AddDropdown(sec, cfg)
@@ -2315,25 +2323,26 @@ function dt.AddDropdown(sec, cfg)
         state = cfg.Options and cfg.Options[1] or nil
     end
     dt.__state[cfg.Id] = state
-    return sec:Dropdown({
+    dt.defaults[cfg.Id] = state
+    if cfg.Callback then dt.OnChange(cfg.Id, cfg.Callback) end
+    local el = sec:Dropdown({
         Title = cfg.Title,
         Desc = cfg.Description,
         Values = cfg.Options,
         Value = state,
         Multi = multi,
         AllowNone = multi,
-        Callback = function(v)
-            dt.SetState(cfg.Id, v, true)
-            if cfg.Callback then pcall(cfg.Callback, v) end
-        end,
+        Callback = function(v) dt.SetState(cfg.Id, v, true) end,
     })
+    dt.elements[cfg.Id] = el
+    return el
 end
 
 function dt.AddButton(sec, cfg)
     return sec:Button({
         Title = cfg.Title,
         Callback = function()
-            if cfg.Callback then pcall(cfg.Callback) end
+            if cfg.Callback then task.spawn(cfg.Callback) end
         end,
     })
 end
@@ -2362,16 +2371,85 @@ end
 function dt.AddInput(sec, cfg)
     local def = tostring(cfg.Default or "")
     dt.__state[cfg.Id] = def
-    return sec:Input({
+    dt.defaults[cfg.Id] = def
+    if cfg.Callback then dt.OnChange(cfg.Id, cfg.Callback) end
+    local el = sec:Input({
         Title = cfg.Title,
         Desc = cfg.Description,
         Placeholder = cfg.Placeholder or "Enter Text...",
         Value = def,
-        Callback = function(v)
-            dt.SetState(cfg.Id, v, true)
-            if cfg.Callback then pcall(cfg.Callback, v) end
-        end,
+        Callback = function(v) dt.SetState(cfg.Id, v, true) end,
     })
+    dt.elements[cfg.Id] = el
+    return el
+end
+
+-- ============================================================
+-- CONFIG PERSISTENCE
+-- ============================================================
+local CONFIG_FOLDER = "WindUI/NiCHHub"
+local CONFIG_FILE = CONFIG_FOLDER .. "/config/main.json"
+
+local function configReady()
+    return typeof(writefile) == "function" and typeof(readfile) == "function"
+        and typeof(isfile) == "function" and typeof(makefolder) == "function"
+end
+
+local function ensureConfigDirs()
+    if not configReady() then return end
+    pcall(makefolder, "WindUI")
+    pcall(makefolder, CONFIG_FOLDER)
+    pcall(makefolder, CONFIG_FOLDER .. "/config")
+end
+
+local function syncElement(id, v)
+    local el = dt.elements[id]
+    if not el then return end
+    if typeof(el.Set) == "function" then pcall(el.Set, el, v)
+    elseif typeof(el.Select) == "function" then pcall(el.Select, el, v) end
+end
+
+local function applyState(id, v)
+    if dt.elements[id] == nil then return end
+    dt.SetState(id, v, true)
+    syncElement(id, v)
+end
+
+function r.saveConfig()
+    if not configReady() then return false end
+    ensureConfigDirs()
+    local data = {}
+    for id in pairs(dt.elements) do
+        local v = dt.__state[id]
+        if v ~= nil then data[id] = v end
+    end
+    local ok, json = pcall(function() return d:JSONEncode(data) end)
+    if not ok or typeof(json) ~= "string" then return false end
+    pcall(writefile, CONFIG_FILE, json)
+    return true
+end
+
+function r.loadConfig()
+    if not configReady() or not isfile(CONFIG_FILE) then return false end
+    local ok, data = pcall(function() return d:JSONDecode(readfile(CONFIG_FILE)) end)
+    if not ok or typeof(data) ~= "table" then return false end
+    local n = 0
+    for id, v in pairs(data) do
+        pcall(applyState, id, v)
+        n = n + 1
+    end
+    return n > 0
+end
+
+function r.resetConfig()
+    if configReady() and isfile(CONFIG_FILE) and typeof(delfile) == "function" then
+        pcall(delfile, CONFIG_FILE)
+    end
+    for id in pairs(dt.elements) do
+        dt.SetState(id, dt.defaults[id], true)
+        syncElement(id, dt.defaults[id])
+    end
+    return true
 end
 
 -- ============================================================
@@ -2406,238 +2484,265 @@ end
 local fq = {}
 
 do
-    local fr = dt.AddTab({ Id = "home", Title = "Home" })
-    local fs = dt.AddSection(fr, { Title = "Session", Description = "Live status" })
-    local ft = dt.AddSection(fr, { Title = "Account", Description = "Save data" })
-    local fu = dt.AddSection(fr, { Title = "Quick Actions" })
-    local fv = dt.AddSection(fr, { Title = "Quick Start" })
+    -- ============ HOME ============
+    local homeTab = dt.AddTab({ Id = "home", Title = "Home" })
 
-    fq.statusRow = dt.AddStatus(fs, { Title = "Automation", Value = "Ready" })
+    local secStatus = dt.AddSection(homeTab, { Title = "Live Status", Description = "Session stats" })
+    fq.statusRow = dt.AddStatus(secStatus, { Title = "Automation", Value = "Ready" })
     fq.statusRow:SetStatus("Success")
-    fq.jobRow = dt.AddStatus(fs, { Title = "Current Job", Value = "Idle" })
-    fq.stolenRow = dt.AddStatus(fs, { Title = "Stolen Eggs", Value = "0" })
-    fq.carryingRow = dt.AddStatus(fs, { Title = "Carrying Egg", Value = "No" })
-    fq.runtimeRow = dt.AddStatus(fs, { Title = "Runtime", Value = "0m" })
-    dt.AddStatus(fs, { Title = "Server", Value = bt })
+    fq.jobRow = dt.AddStatus(secStatus, { Title = "Current Job", Value = "Idle" })
+    fq.stolenRow = dt.AddStatus(secStatus, { Title = "Stolen Eggs", Value = "0" })
+    fq.carryingRow = dt.AddStatus(secStatus, { Title = "Carrying Egg", Value = "No" })
+    fq.runtimeRow = dt.AddStatus(secStatus, { Title = "Runtime", Value = "0m" })
+    dt.AddStatus(secStatus, { Title = "Server", Value = bt })
 
-    fq.inventoryProgress = dt.AddStatus(ft, { Title = "Egg Inventory", Value = tostring(r.eggInventoryCount()) })
-    fq.moneyRow = dt.AddStatus(ft, { Title = "Money", Value = "0" })
-    fq.speedRow = dt.AddStatus(ft, { Title = "Speed Power", Value = "0" })
-    fq.rebirthRow = dt.AddStatus(ft, { Title = "Rebirths", Value = "0" })
-    fq.petsOwnedRow = dt.AddStatus(ft, { Title = "Pets Owned", Value = "0" })
+    local secAccount = dt.AddSection(homeTab, { Title = "Account", Description = "Save data" })
+    fq.inventoryProgress = dt.AddStatus(secAccount, { Title = "Egg Inventory", Value = tostring(r.eggInventoryCount()) })
+    fq.moneyRow = dt.AddStatus(secAccount, { Title = "Money", Value = "0" })
+    fq.speedRow = dt.AddStatus(secAccount, { Title = "Speed Power", Value = "0" })
+    fq.rebirthRow = dt.AddStatus(secAccount, { Title = "Rebirths", Value = "0" })
+    fq.petsOwnedRow = dt.AddStatus(secAccount, { Title = "Pets Owned", Value = "0" })
 
-    dt.AddButton(fu, { Title = "Return to Base", Text = "Return", Callback = function()
+    local secActions = dt.AddSection(homeTab, { Title = "Quick Actions", Description = "One-click commands" })
+    dt.AddButton(secActions, { Title = "Return to Base", Text = "Return", Callback = function()
         task.spawn(function()
             if not r.getBasePosition() or not r.returnToBaseBypass(nil) then
                 r.notify("Return", "Base unavailable", "Warning", 3)
             end
         end)
     end })
-    dt.AddButton(fu, { Title = "Place Eggs", Text = "Place", Callback = function()
+    dt.AddButton(secActions, { Title = "Place Eggs", Text = "Place", Callback = function()
         task.spawn(function() r.runAutoPlaceEggs(true) end)
     end })
-    dt.AddButton(fu, { Title = "Server Hop", Text = "Hop", Callback = function()
+    dt.AddButton(secActions, { Title = "Fuse Now", Text = "Fuse", Callback = function()
+        task.spawn(function() r.runAutoFusePets(true) end)
+    end })
+    dt.AddButton(secActions, { Title = "Hop Server Now", Text = "Hop", Callback = function()
         task.spawn(function() cb = 0; r.serverHop("Manual") end)
     end })
-    dt.AddButton(fu, { Title = "Fuse Now", Text = "Fuse", Callback = function()
+
+    local secTips = dt.AddSection(homeTab, { Title = "Quick Start" })
+    dt.AddParagraph(secTips, { Title = "Farm flow",
+        Content = "Grab1 -> Hold " .. bp .. "s -> Release -> Grab2 -> Return Base. Auto task order runs the first ready job." })
+    dt.AddParagraph(secTips, { Title = "Target filters",
+        Content = "Empty multi-select filters mean everything matches." })
+    dt.AddParagraph(secTips, { Title = "Config",
+        Content = "Settings auto-save and auto-load. Manage them in the Settings tab." })
+
+    -- ============ FARM ============
+    local farmTab = dt.AddTab({ Id = "farm", Title = "Farm" })
+
+    local secOrder = dt.AddSection(farmTab, { Title = "Task Order", Description = "Runs the first ready task in this order" })
+    for idx, taskName in ipairs(ba) do
+        dt.AddDropdown(secOrder, { Id = taskName, Title = "Slot " .. idx, Options = az, Default = az[idx] })
+    end
+
+    local secSteal = dt.AddSection(farmTab, { Title = "Steal Eggs", Description = "Main egg farming" })
+    dt.AddToggle(secSteal, { Id = "AutoStealSelected", Title = "Auto Steal Selected", Description = "Respect target filters below", Default = false, Callback = function(bg)
+        if bg == false and not r.stealingEnabled() then r.stealCleanup() end
+    end })
+    dt.AddToggle(secSteal, { Id = "AutoStealAll", Title = "Auto Steal All", Description = "Ignore rarity and mutation filters", Default = false, Callback = function(bg)
+        if bg == false and not r.stealingEnabled() then r.stealCleanup() end
+    end })
+    dt.AddToggle(secSteal, { Id = "StealBigEggs", Title = "Steal Big Eggs", Description = "Only oversized eggs", Default = false, Callback = function(bg)
+        if bg == false and not r.stealingEnabled() then r.stealCleanup() end
+    end })
+    dt.AddSlider(secSteal, { Id = "StealMoveSpeed", Title = "Steal Speed", Min = 16, Max = 2000, Default = bj, Step = 1, Suffix = " studs/s" })
+    dt.AddSlider(secSteal, { Id = "BypassReturnSpeed", Title = "Return Speed", Min = 16, Max = 2000, Default = bk, Step = 1, Suffix = " studs/s" })
+
+    dt.AddDivider(secSteal, { Title = "Target filters" })
+    dt.AddDropdown(secSteal, { Id = "StealZones", Title = "Areas", Options = bd, Multi = true, Default = {} })
+    dt.AddDropdown(secSteal, { Id = "StealRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(secSteal, { Id = "StealMutations", Title = "Mutations", Options = av, Multi = true, Default = {} })
+    dt.AddDropdown(secSteal, { Id = "StealPriority", Title = "Target Priority", Options = aw, Default = "Rarest" })
+    dt.AddSlider(secSteal, { Id = "StealBigEggScale", Title = "Minimum Big Egg Size", Min = 1, Max = 50, Default = 1.5, Step = 0.1, Suffix = "x" })
+
+    dt.AddDivider(secSteal, { Title = "Carry behavior" })
+    dt.AddToggle(secSteal, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
+    dt.AddToggle(secSteal, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
+
+    local secPlace = dt.AddSection(farmTab, { Title = "Place & Hatch" })
+    dt.AddToggle(secPlace, { Id = "AutoPlaceSelected", Title = "Auto Place Selected", Default = false })
+    dt.AddToggle(secPlace, { Id = "AutoPlaceAll", Title = "Auto Place All", Default = false })
+    dt.AddToggle(secPlace, { Id = "AutoOpenReadyEggs", Title = "Auto Hatch Ready", Default = false })
+    dt.AddDropdown(secPlace, { Id = "LifecycleRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(secPlace, { Id = "LifecycleMutations", Title = "Mutations", Options = av, Multi = true, Default = {} })
+
+    local secHop = dt.AddSection(farmTab, { Title = "Server Hop" })
+    dt.AddToggle(secHop, { Id = "AutoServerHop", Title = "Auto Server Hop", Default = false })
+    dt.AddDropdown(secHop, { Id = "HopMode", Title = "Hop When", Options = bb, Default = "No Matching Eggs" })
+    dt.AddSlider(secHop, { Id = "HopValue", Title = "Wait Before Hop", Min = 1, Max = 200, Default = 15, Step = 1 })
+    dt.AddButton(secHop, { Title = "Hop Now", Text = "Hop", Callback = function()
+        task.spawn(function() cb = 0; r.serverHop("Manual") end)
+    end })
+
+    -- ============ SELL ============
+    local sellTab = dt.AddTab({ Id = "sell", Title = "Sell" })
+
+    local secSellEggs = dt.AddSection(sellTab, { Title = "Auto Sell Eggs", Description = "Sell eggs from inventory" })
+    dt.AddToggle(secSellEggs, { Id = "AutoSellEggs", Title = "Auto Sell Eggs", Default = false })
+    dt.AddDropdown(secSellEggs, { Id = "SellEggRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddSlider(secSellEggs, { Id = "SellEggInterval", Title = "Interval", Min = 1, Max = 120, Default = 8, Step = 1, Suffix = " s" })
+
+    local secSellPets = dt.AddSection(sellTab, { Title = "Auto Sell Pets", Description = "Sell spare pets" })
+    dt.AddToggle(secSellPets, { Id = "AutoSellPets", Title = "Auto Sell Pets", Default = false })
+    dt.AddDropdown(secSellPets, { Id = "SellRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(secSellPets, { Id = "SellMutations", Title = "Mutations", Options = av, Multi = true, Default = {} })
+    dt.AddToggle(secSellPets, { Id = "SellKeepMutated", Title = "Never Sell Mutated", Default = true })
+    dt.AddToggle(secSellPets, { Id = "SellKeepEquipped", Title = "Never Sell Equipped", Default = true })
+    dt.AddSlider(secSellPets, { Id = "SellMaxScale", Title = "Maximum Scale to Sell", Min = 0, Max = 10, Default = 10, Step = 0.1 })
+    dt.AddSlider(secSellPets, { Id = "SellInterval", Title = "Interval", Min = 1, Max = 120, Default = 6, Step = 1, Suffix = " s" })
+
+    -- ============ PETS ============
+    local petsTab = dt.AddTab({ Id = "pets", Title = "Pets" })
+
+    local secFuse = dt.AddSection(petsTab, { Title = "Auto Fuse", Description = "Merge pets into rarer ones" })
+    dt.AddToggle(secFuse, { Id = "AutoFusePets", Title = "Auto Fuse Pets", Default = false })
+    dt.AddDropdown(secFuse, { Id = "FuseRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddDropdown(secFuse, { Id = "FuseMutations", Title = "Mutations", Options = av, Multi = true, Default = {} })
+    dt.AddDropdown(secFuse, { Id = "FuseTarget", Title = "Pick Group By", Options = ax, Default = "Highest Rarity" })
+    dt.AddToggle(secFuse, { Id = "FuseKeepMutated", Title = "Never Fuse Mutated", Default = true })
+    dt.AddToggle(secFuse, { Id = "FuseKeepEquipped", Title = "Never Fuse Equipped", Default = true })
+    dt.AddToggle(secFuse, { Id = "FuseAutoReveal", Title = "Auto Complete Reveal", Default = true })
+    dt.AddSlider(secFuse, { Id = "FuseMaxScale", Title = "Maximum Scale to Fuse", Min = 0, Max = 10, Default = 10, Step = 0.1 })
+    dt.AddSlider(secFuse, { Id = "FuseKeepPerCategory", Title = "Keep Per Pet Type", Min = 0, Max = 20, Default = 0, Step = 1 })
+    dt.AddSlider(secFuse, { Id = "FuseInterval", Title = "Interval", Min = 1, Max = 120, Default = 8, Step = 1, Suffix = " s" })
+    dt.AddButton(secFuse, { Title = "Fuse Now", Text = "Fuse", Callback = function()
         task.spawn(function() r.runAutoFusePets(true) end)
     end })
 
-    dt.AddParagraph(fv, { Title = "Farm flow",
-        Content = "Grab1 -> Hold 3s -> Release -> Grab2 -> Return Base. Hold time " .. bp .. "s." })
-    dt.AddParagraph(fv, { Title = "Filters",
-        Content = "Empty multi-select filters mean everything matches." })
+    local secPetsGeneral = dt.AddSection(petsTab, { Title = "General" })
+    dt.AddToggle(secPetsGeneral, { Id = "AutoEquipBest", Title = "Auto Equip Best Pets", Default = false })
+    dt.AddToggle(secPetsGeneral, { Id = "AutoDeleteOwnPets", Title = "Hide Own Pet Renders", Default = false })
 
-    local fw = dt.AddTab({ Id = "farm", Title = "Farm" })
-    local fx = dt.AddSection(fw, { Title = "Steal Eggs", Description = "Main egg farming" })
-    local fy = dt.AddSection(fw, { Title = "Egg Handling" })
-    local fz = dt.AddSection(fw, { Title = "Server Hop" })
-    local ga = dt.AddSection(fw, { Title = "Task Order" })
+    -- ============ PROGRESS ============
+    local progTab = dt.AddTab({ Id = "progress", Title = "Progress" })
 
-    dt.AddToggle(fx, { Id = "AutoStealSelected", Title = "Auto Steal Selected", Description = "Use filters below", Default = false, Callback = function(bg)
-        if bg == false and not r.stealingEnabled() then r.stealCleanup() end
-    end })
-    dt.AddToggle(fx, { Id = "AutoStealAll", Title = "Auto Steal All", Description = "Ignore rarity/mutation", Default = false, Callback = function(bg)
-        if bg == false and not r.stealingEnabled() then r.stealCleanup() end
-    end })
-    dt.AddToggle(fx, { Id = "StealBigEggs", Title = "Steal Big Eggs", Default = false, Callback = function(bg)
-        if bg == false and not r.stealingEnabled() then r.stealCleanup() end
-    end })
+    local secUpgrades = dt.AddSection(progTab, { Title = "Upgrades", Description = "Money spenders" })
+    dt.AddToggle(secUpgrades, { Id = "AutoUpgrades", Title = "Auto Buy Upgrades", Default = false })
+    dt.AddDropdown(secUpgrades, { Id = "UpgradeTypes", Title = "Upgrade Types", Options = ay, Multi = true, Default = { "Base", "Treadmill" } })
 
-    dt.AddSlider(fx, {
-        Id = "StealMoveSpeed",
-        Title = "Steal Speed",
-        Min = 16, Max = 2000,
-        Default = bj,
-        Step = 1,
-        Suffix = " studs/s",
-    })
+    local secRewards = dt.AddSection(progTab, { Title = "Rewards" })
+    dt.AddToggle(secRewards, { Id = "AutoClaimIndex", Title = "Auto Claim Index", Default = false })
+    dt.AddToggle(secRewards, { Id = "AutoClaimGroupReward", Title = "Auto Claim Group Reward", Default = false })
+    dt.AddToggle(secRewards, { Id = "AutoClaimOffline", Title = "Claim Offline Earnings", Default = false })
 
-    dt.AddSlider(fx, {
-        Id = "BypassReturnSpeed",
-        Title = "Return Speed",
-        Min = 16, Max = 2000,
-        Default = bk,
-        Step = 1,
-        Suffix = " studs/s",
-    })
+    local secTrails = dt.AddSection(progTab, { Title = "Equipment" })
+    dt.AddToggle(secTrails, { Id = "AutoBuyTrail", Title = "Auto Buy Trail", Default = false })
+    dt.AddDropdown(secTrails, { Id = "TrailWanted", Title = "Trails", Options = be, Multi = true, Default = {} })
+    dt.AddToggle(secTrails, { Id = "AutoEquipBestTrail", Title = "Auto Equip Best Trail", Default = false })
+    dt.AddToggle(secTrails, { Id = "AutoEquipBestGear", Title = "Auto Equip Best Gear", Default = false })
 
-    dt.AddDivider(fx, { Title = "Target filters" })
-    dt.AddDropdown(fx, { Id = "StealZones", Title = "Areas", Options = bd, Multi = true, Default = {} })
-    dt.AddDropdown(fx, { Id = "StealRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
-    dt.AddDropdown(fx, { Id = "StealMutations", Title = "Mutations", Options = av, Multi = true, Default = {} })
-    dt.AddDropdown(fx, { Id = "StealPriority", Title = "Target Priority", Options = aw, Default = "Rarest" })
-    dt.AddSlider(fx, { Id = "StealBigEggScale", Title = "Minimum Big Egg Size", Min = 1, Max = 50, Default = 1.5, Step = 0.1, Suffix = "x" })
-    dt.AddDivider(fx, { Title = "Carry behavior" })
-    dt.AddToggle(fx, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
-    dt.AddToggle(fx, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
+    local secTraining = dt.AddSection(progTab, { Title = "Training" })
+    dt.AddToggle(secTraining, { Id = "AutoTreadmill", Title = "Auto Treadmill Training", Default = false })
 
-    dt.AddToggle(fy, { Id = "AutoPlaceSelected", Title = "Auto Place Selected", Default = false })
-    dt.AddToggle(fy, { Id = "AutoPlaceAll", Title = "Auto Place All", Default = false })
-    dt.AddToggle(fy, { Id = "AutoOpenReadyEggs", Title = "Auto Hatch Ready", Default = false })
-    dt.AddDropdown(fy, { Id = "LifecycleRarities", Title = "Lifecycle Rarities", Options = at, Multi = true, Default = {} })
-    dt.AddDropdown(fy, { Id = "LifecycleMutations", Title = "Lifecycle Mutations", Options = av, Multi = true, Default = {} })
-    dt.AddDivider(fy, { Title = "Egg selling" })
-    dt.AddToggle(fy, { Id = "AutoSellEggs", Title = "Auto Sell Eggs", Default = false })
-    dt.AddDropdown(fy, { Id = "SellEggRarities", Title = "Sell Rarities", Options = at, Multi = true, Default = {} })
-    dt.AddSlider(fy, { Id = "SellEggInterval", Title = "Sell Interval", Min = 1, Max = 120, Default = 8, Step = 1, Suffix = " s" })
+    -- ============ PLAYER ============
+    local playerTab = dt.AddTab({ Id = "player", Title = "Player" })
 
-    dt.AddToggle(fz, { Id = "AutoServerHop", Title = "Auto Server Hop", Default = false })
-    dt.AddDropdown(fz, { Id = "HopMode", Title = "Hop When", Options = bb, Default = "No Matching Eggs" })
-    dt.AddSlider(fz, { Id = "HopValue", Title = "Wait Before Hop", Min = 1, Max = 200, Default = 15, Step = 1 })
-    dt.AddButton(fz, { Title = "Hop Now", Text = "Hop", Callback = function()
-        task.spawn(function() cb = 0; r.serverHop("Manual") end)
-    end })
+    local secEsp = dt.AddSection(playerTab, { Title = "ESP", Description = "Highlight targets" })
+    dt.AddToggle(secEsp, { Id = "EspWorldEggs", Title = "World Egg ESP", Default = false })
+    dt.AddToggle(secEsp, { Id = "EspCarriedEggs", Title = "Carried and Dropped Egg ESP", Default = false })
+    dt.AddToggle(secEsp, { Id = "EspGuards", Title = "Guard ESP", Default = false })
+    dt.AddToggle(secEsp, { Id = "EspPets", Title = "Pet ESP", Default = false })
+    dt.AddToggle(secEsp, { Id = "EspPlayers", Title = "Player ESP", Default = false })
+    dt.AddToggle(secEsp, { Id = "EspMachines", Title = "Machine ESP", Default = false })
+    dt.AddToggle(secEsp, { Id = "EspPlots", Title = "Plot ESP", Default = false })
+    dt.AddSlider(secEsp, { Id = "EspDistance", Title = "Render Distance", Min = 100, Max = 6000, Default = 2000, Step = 50, Suffix = " studs" })
 
-    dt.AddParagraph(ga, { Title = "Task Order", Content = "Runs the first ready task in this order." })
-    for bh, bi in ipairs(ba) do
-        dt.AddDropdown(ga, { Id = bi, Title = "Priority " .. bh, Options = az, Default = az[bh] })
-    end
+    local secMove = dt.AddSection(playerTab, { Title = "Movement" })
+    dt.AddToggle(secMove, { Id = "WalkSpeedEnabled", Title = "Walk Speed Override", Default = false })
+    dt.AddSlider(secMove, { Id = "WalkSpeed", Title = "Walk Speed", Min = 16, Max = 500, Default = 32, Step = 1 })
+    dt.AddToggle(secMove, { Id = "JumpPowerEnabled", Title = "Jump Power Override", Default = false })
+    dt.AddSlider(secMove, { Id = "JumpPower", Title = "Jump Power", Min = 10, Max = 500, Default = 50, Step = 1 })
+    dt.AddToggle(secMove, { Id = "InfJump", Title = "Infinite Jump", Default = false })
+    dt.AddToggle(secMove, { Id = "NoClip", Title = "NoClip", Default = false })
 
-    local bh = dt.AddTab({ Id = "pets", Title = "Pets" })
-    local bi = dt.AddSection(bh, { Title = "Pets" })
-    local bj = dt.AddSection(bh, { Title = "Auto Fuse" })
-    local bl = dt.AddSection(bh, { Title = "Auto Sell Pets" })
-
-    dt.AddToggle(bi, { Id = "AutoEquipBest", Title = "Auto Equip Best Pets", Default = false })
-    dt.AddToggle(bi, { Id = "AutoDeleteOwnPets", Title = "Hide Own Pet Renders", Default = false })
-    dt.AddToggle(bj, { Id = "AutoFusePets", Title = "Auto Fuse Pets", Default = false })
-    dt.AddDropdown(bj, { Id = "FuseRarities", Title = "Fuse Rarities", Options = at, Multi = true, Default = {} })
-    dt.AddDropdown(bj, { Id = "FuseMutations", Title = "Fuse Mutations", Options = av, Multi = true, Default = {} })
-    dt.AddDropdown(bj, { Id = "FuseTarget", Title = "Pick Group By", Options = ax, Default = "Highest Rarity" })
-    dt.AddToggle(bj, { Id = "FuseKeepMutated", Title = "Never Fuse Mutated", Default = true })
-    dt.AddToggle(bj, { Id = "FuseKeepEquipped", Title = "Never Fuse Equipped", Default = true })
-    dt.AddToggle(bj, { Id = "FuseAutoReveal", Title = "Auto Complete Reveal", Default = true })
-    dt.AddSlider(bj, { Id = "FuseMaxScale", Title = "Maximum Scale to Fuse", Min = 0, Max = 10, Default = 10, Step = 0.1 })
-    dt.AddSlider(bj, { Id = "FuseKeepPerCategory", Title = "Keep Per Pet Type", Min = 0, Max = 20, Default = 0, Step = 1 })
-    dt.AddSlider(bj, { Id = "FuseInterval", Title = "Fuse Interval", Min = 1, Max = 120, Default = 8, Step = 1, Suffix = " s" })
-    dt.AddButton(bj, { Title = "Fuse Now", Text = "Fuse", Callback = function() task.spawn(function() r.runAutoFusePets(true) end) end })
-
-    dt.AddToggle(bl, { Id = "AutoSellPets", Title = "Auto Sell Pets", Default = false })
-    dt.AddDropdown(bl, { Id = "SellRarities", Title = "Sell Rarities", Options = at, Multi = true, Default = {} })
-    dt.AddDropdown(bl, { Id = "SellMutations", Title = "Sell Mutations", Options = av, Multi = true, Default = {} })
-    dt.AddToggle(bl, { Id = "SellKeepMutated", Title = "Never Sell Mutated", Default = true })
-    dt.AddToggle(bl, { Id = "SellKeepEquipped", Title = "Never Sell Equipped", Default = true })
-    dt.AddSlider(bl, { Id = "SellMaxScale", Title = "Maximum Scale to Sell", Min = 0, Max = 10, Default = 10, Step = 0.1 })
-    dt.AddSlider(bl, { Id = "SellInterval", Title = "Sell Interval", Min = 1, Max = 120, Default = 6, Step = 1, Suffix = " s" })
-
-    local bn = dt.AddTab({ Id = "progress", Title = "Progress" })
-    local bo = dt.AddSection(bn, { Title = "Upgrades" })
-    local bq = dt.AddSection(bn, { Title = "Rewards" })
-    local br = dt.AddSection(bn, { Title = "Equipment" })
-    local bs = dt.AddSection(bn, { Title = "Training" })
-    dt.AddToggle(bo, { Id = "AutoUpgrades", Title = "Auto Buy Upgrades", Default = false })
-    dt.AddDropdown(bo, { Id = "UpgradeTypes", Title = "Upgrade Types", Options = ay, Multi = true, Default = { "Base", "Treadmill" } })
-    dt.AddToggle(bq, { Id = "AutoClaimIndex", Title = "Auto Claim Index", Default = false })
-    dt.AddToggle(bq, { Id = "AutoClaimGroupReward", Title = "Auto Claim Group Reward", Default = false })
-    dt.AddToggle(bq, { Id = "AutoClaimOffline", Title = "Claim Offline Earnings", Default = false })
-    dt.AddToggle(br, { Id = "AutoBuyTrail", Title = "Auto Buy Trail", Default = false })
-    dt.AddDropdown(br, { Id = "TrailWanted", Title = "Trails", Options = be, Multi = true, Default = {} })
-    dt.AddToggle(br, { Id = "AutoEquipBestTrail", Title = "Auto Equip Best Trail", Default = false })
-    dt.AddToggle(br, { Id = "AutoEquipBestGear", Title = "Auto Equip Best Gear", Default = false })
-    dt.AddToggle(bs, { Id = "AutoTreadmill", Title = "Auto Treadmill Training", Default = false })
-
-    local bu = dt.AddTab({ Id = "player", Title = "Player" })
-    local bv = dt.AddSection(bu, { Title = "ESP" })
-    local bw = dt.AddSection(bu, { Title = "Movement" })
-    local bx = dt.AddSection(bu, { Title = "Teleports" })
-    dt.AddToggle(bv, { Id = "EspWorldEggs", Title = "World Egg ESP", Default = false })
-    dt.AddToggle(bv, { Id = "EspCarriedEggs", Title = "Carried and Dropped Egg ESP", Default = false })
-    dt.AddToggle(bv, { Id = "EspGuards", Title = "Guard ESP", Default = false })
-    dt.AddToggle(bv, { Id = "EspPets", Title = "Pet ESP", Default = false })
-    dt.AddToggle(bv, { Id = "EspPlayers", Title = "Player ESP", Default = false })
-    dt.AddToggle(bv, { Id = "EspMachines", Title = "Machine ESP", Default = false })
-    dt.AddToggle(bv, { Id = "EspPlots", Title = "Plot ESP", Default = false })
-    dt.AddSlider(bv, { Id = "EspDistance", Title = "Render Distance", Min = 100, Max = 6000, Default = 2000, Step = 50, Suffix = " studs" })
-    dt.AddToggle(bw, { Id = "WalkSpeedEnabled", Title = "Walk Speed Override", Default = false })
-    dt.AddSlider(bw, { Id = "WalkSpeed", Title = "Walk Speed", Min = 16, Max = 500, Default = 32, Step = 1 })
-    dt.AddToggle(bw, { Id = "JumpPowerEnabled", Title = "Jump Power Override", Default = false })
-    dt.AddSlider(bw, { Id = "JumpPower", Title = "Jump Power", Min = 10, Max = 500, Default = 50, Step = 1 })
-    dt.AddToggle(bw, { Id = "InfJump", Title = "Infinite Jump", Default = false })
-    dt.AddToggle(bw, { Id = "NoClip", Title = "NoClip", Default = false })
-    dt.AddDivider(bw, { Title = "Fly" })
-    dt.AddToggle(bw, { Id = "Fly", Title = "Fly", Default = false, Callback = function(by)
+    dt.AddDivider(secMove, { Title = "Fly" })
+    dt.AddToggle(secMove, { Id = "Fly", Title = "Fly", Default = false, Callback = function(by)
         if not by then
-            local bz = r.getHumanoid(); if bz then bz.PlatformStand = false end
-            local ca = r.getRoot()
-            local ccb = ca and ca:FindFirstChild("ApexFlyLV")
-            if ccb then ccb:Destroy() end
+            local hmd = r.getHumanoid(); if hmd then hmd.PlatformStand = false end
+            local root = r.getRoot()
+            local lv = root and root:FindFirstChild("ApexFlyLV")
+            if lv then lv:Destroy() end
         end
     end })
-    dt.AddSlider(bw, { Id = "FlySpeed", Title = "Fly Speed", Min = 10, Max = 400, Default = 60, Step = 1 })
-    dt.AddDropdown(bx, { Id = "WaypointTarget", Title = "Waypoint", Options = dq, Default = "Base" })
-    dt.AddButton(bx, { Title = "Teleport to Waypoint", Text = "Go", Callback = function()
+    dt.AddSlider(secMove, { Id = "FlySpeed", Title = "Fly Speed", Min = 10, Max = 400, Default = 60, Step = 1 })
+
+    local secTeleport = dt.AddSection(playerTab, { Title = "Teleports" })
+    dt.AddDropdown(secTeleport, { Id = "WaypointTarget", Title = "Waypoint", Options = dq, Default = "Base" })
+    dt.AddButton(secTeleport, { Title = "Teleport to Waypoint", Text = "Go", Callback = function()
         task.spawn(function()
-            local by = r.resolveWaypoint(r.optionValue("WaypointTarget", "Base"))
-            if not by then r.notify("Waypoint", "Unavailable", "Warning", 3); return end
-            if not r.bypassMoveTo(by, nil, r.bypassSpeed()) then r.notify("Waypoint", "Failed", "Error", 3) end
+            local wp = r.resolveWaypoint(r.optionValue("WaypointTarget", "Base"))
+            if not wp then r.notify("Waypoint", "Unavailable", "Warning", 3); return end
+            if not r.bypassMoveTo(wp, nil, r.bypassSpeed()) then r.notify("Waypoint", "Failed", "Error", 3) end
         end)
     end })
 
-    local cc = dt.AddTab({ Id = "system", Title = "System" })
-    local cd = dt.AddSection(cc, { Title = "Session" })
-    local ce = dt.AddSection(cc, { Title = "Performance" })
-    local cf = dt.AddSection(cc, { Title = "Webhooks" })
-    local cg = dt.AddSection(cc, { Title = "About" })
-    dt.AddToggle(cd, { Id = "AntiAfk", Title = "Anti-AFK", Default = true })
-    dt.AddToggle(cd, { Id = "AntiGameplayPause", Title = "No Gameplay Paused", Default = true,
+    -- ============ SETTINGS ============
+    local settingsTab = dt.AddTab({ Id = "system", Title = "Settings" })
+
+    local secSessionProtect = dt.AddSection(settingsTab, { Title = "Session", Description = "Session safety" })
+    dt.AddToggle(secSessionProtect, { Id = "AntiAfk", Title = "Anti-AFK", Default = true })
+    dt.AddToggle(secSessionProtect, { Id = "AntiGameplayPause", Title = "No Gameplay Paused", Default = true,
         Callback = function(ch) r.applyAntiGameplayPause(ch) end })
-    dt.AddToggle(cd, { Id = "AutoReconnect", Title = "Auto Reconnect", Default = false })
-    dt.AddButton(cd, { Title = "Rejoin Server", Text = "Rejoin", Callback = function() r.rejoinServer() end })
-    dt.AddButton(cd, { Title = "Copy Join Script", Text = "Copy", Callback = function()
+    dt.AddToggle(secSessionProtect, { Id = "AutoReconnect", Title = "Auto Reconnect", Default = false })
+    dt.AddButton(secSessionProtect, { Title = "Rejoin Server", Text = "Rejoin", Callback = function() r.rejoinServer() end })
+    dt.AddButton(secSessionProtect, { Title = "Copy Join Script", Text = "Copy", Callback = function()
         pcall(function() setclipboard(string.format(
             'game:GetService("TeleportService"):TeleportToPlaceInstance(%d, "%s", game:GetService("Players").LocalPlayer)',
             game.PlaceId, bs)) end)
         r.notify("Copied", "Join script copied", "Success", 3)
     end })
-    dt.AddToggle(ce, { Id = "FpsBoost", Title = "FPS Boost", Default = false,
+
+    local secPerf = dt.AddSection(settingsTab, { Title = "Performance" })
+    dt.AddToggle(secPerf, { Id = "FpsBoost", Title = "FPS Boost", Default = false,
         Callback = function(ch) if ch then r.enableFpsBoost() else r.disableFpsBoost() end end })
-    dt.AddToggle(ce, { Id = "DisableRendering", Title = "Disable 3D Rendering", Default = false,
+    dt.AddToggle(secPerf, { Id = "DisableRendering", Title = "Disable 3D Rendering", Default = false,
         Callback = function(ch) r.applyRendering(ch) end })
-    dt.AddSlider(ce, { Id = "FpsCap", Title = "FPS Cap", Min = 15, Max = 360, Default = 60, Step = 1, Suffix = " fps",
+    dt.AddSlider(secPerf, { Id = "FpsCap", Title = "FPS Cap", Min = 15, Max = 360, Default = 60, Step = 1, Suffix = " fps",
         Callback = function(ch) r.applyFpsCap(ch) end })
-    dt.AddToggle(cf, { Id = "WebhookEnabled", Title = "Enable Webhooks", Default = false })
-    dt.AddInput(cf, { Id = "WebhookUrl", Title = "Webhook URL", Placeholder = "https://discord.com/api/webhooks/...", Default = "" })
-    dt.AddInput(cf, { Id = "WebhookPingId", Title = "Ping User ID", Placeholder = "123456789012345678", Default = "" })
-    dt.AddSlider(cf, { Id = "WebhookInterval", Title = "Summary Interval", Min = 1, Max = 180, Default = 15, Step = 1, Suffix = " min" })
-    dt.AddToggle(cf, { Id = "WebhookEggSpawns", Title = "List Spawned Eggs", Default = true })
-    dt.AddDropdown(cf, { Id = "WebhookRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
-    dt.AddToggle(cf, { Id = "WebhookDisconnectAlerts", Title = "Disconnect Alerts", Default = false })
-    dt.AddButton(cf, { Title = "Send Summary Now", Text = "Send", Callback = function()
+
+    local secWebhooks = dt.AddSection(settingsTab, { Title = "Webhooks", Description = "Discord push notifications" })
+    dt.AddToggle(secWebhooks, { Id = "WebhookEnabled", Title = "Enable Webhooks", Default = false })
+    dt.AddInput(secWebhooks, { Id = "WebhookUrl", Title = "Webhook URL", Placeholder = "https://discord.com/api/webhooks/...", Default = "" })
+    dt.AddInput(secWebhooks, { Id = "WebhookPingId", Title = "Ping User ID", Placeholder = "123456789012345678", Default = "" })
+    dt.AddSlider(secWebhooks, { Id = "WebhookInterval", Title = "Summary Interval", Min = 1, Max = 180, Default = 15, Step = 1, Suffix = " min" })
+    dt.AddToggle(secWebhooks, { Id = "WebhookEggSpawns", Title = "List Spawned Eggs", Default = true })
+    dt.AddDropdown(secWebhooks, { Id = "WebhookRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
+    dt.AddToggle(secWebhooks, { Id = "WebhookDisconnectAlerts", Title = "Disconnect Alerts", Default = false })
+    dt.AddButton(secWebhooks, { Title = "Send Summary Now", Text = "Send", Callback = function()
         task.spawn(function()
             local ch = r.sendSummary()
             r.notify("Webhook", ch and "Sent" or "Failed", ch and "Success" or "Error", 3)
         end)
     end })
-    dt.AddParagraph(cg, { Title = "Script Dev", Content = "Apex" })
-    dt.AddParagraph(cg, { Title = "UI", Content = "WindUI" })
-    dt.AddParagraph(cg, { Title = "Discord", Content = n })
-    dt.AddButton(cg, { Title = "Copy Discord Link", Text = "Copy", Callback = function()
+
+    local secConfig = dt.AddSection(settingsTab, { Title = "Config", Description = "Settings persistence" })
+    dt.AddParagraph(secConfig, { Title = "Auto", Content = "Saves every 30 seconds and on close. Auto-loads on start." })
+    dt.AddButton(secConfig, { Title = "Save Config Now", Text = "Save", Callback = function()
+        local ok = r.saveConfig()
+        r.notify("Config", ok and "Saved" or "Save failed", ok and "Success" or "Error", 3)
+    end })
+    dt.AddButton(secConfig, { Title = "Load Config", Text = "Load", Callback = function()
+        local ok = r.loadConfig()
+        r.notify("Config", ok and "Loaded" or "No saved config", ok and "Success" or "Warning", 3)
+    end })
+    dt.AddButton(secConfig, { Title = "Reset to Defaults", Text = "Reset", Callback = function()
+        local ok = r.resetConfig()
+        r.notify("Config", ok and "Reset to defaults" or "Reset failed", ok and "Success" or "Error", 3)
+    end })
+
+    local secAbout = dt.AddSection(settingsTab, { Title = "About" })
+    dt.AddParagraph(secAbout, { Title = "Script Dev", Content = "Apex" })
+    dt.AddParagraph(secAbout, { Title = "UI", Content = "WindUI" })
+    dt.AddParagraph(secAbout, { Title = "Discord", Content = n })
+    dt.AddButton(secAbout, { Title = "Copy Discord Link", Text = "Copy", Callback = function()
         pcall(function() setclipboard(n) end)
         r.notify("Copied", "Discord link copied", "Success", 3)
     end })
-    dt.AddDivider(cg, { Title = "Danger Zone" })
-    dt.AddButton(cg, { Title = "Unload Script", Text = "Unload", Callback = function() r.unload() end })
+
+    dt.AddDivider(secAbout, { Title = "Danger Zone" })
+    dt.AddButton(secAbout, { Title = "Unload Script", Text = "Unload", Callback = function() r.unload() end })
 end
 
 -- ============================================================
@@ -2666,6 +2771,14 @@ local function fr()
     end)
 end
 fr()
+r.loadConfig()
+if Window.OnDestroy then pcall(Window.OnDestroy, Window, function() pcall(r.saveConfig) end) end
+task.spawn(function()
+    while s do
+        task.wait(30)
+        pcall(r.saveConfig)
+    end
+end)
 
 -- ============================================================
 -- UNLOAD
@@ -2687,7 +2800,10 @@ function r.unload()
     for _, fs in ipairs(dt.__connections) do
         pcall(function() if typeof(fs) == "RBXScriptConnection" then fs:Disconnect() end end)
     end
-    if Window then pcall(function() Window:Destroy() end) end
+    if Window then
+        pcall(r.saveConfig)
+        pcall(function() Window:Destroy() end)
+    end
     a.__APEX_HUB_RUNNING = nil
     a.__APEX_HUB_SHUTDOWN = nil
 end
