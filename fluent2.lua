@@ -2306,16 +2306,23 @@ local function addToggle(parent, opt)
     local id = opt.Id
     dt.__state[id] = opt.Default == true
     local fresh = true
-    return parent:AddToggle(id, {
-        Title = opt.Title,
-        Description = opt.Description,
-        Default = opt.Default == true,
-        Callback = function(v)
-            if fresh then fresh = false; return end
-            dt.SetState(id, v, true)
-            if opt.Callback then pcall(opt.Callback, v) end
-        end,
-    })
+    local ok, ctl = pcall(function()
+        return parent:AddToggle(id, {
+            Title = opt.Title,
+            Description = opt.Description,
+            Default = opt.Default == true,
+            Callback = function(v)
+                if fresh then fresh = false; return end
+                dt.SetState(id, v, true)
+                if opt.Callback then pcall(opt.Callback, v) end
+            end,
+        })
+    end)
+    if not ok then
+        pcall(function() Fluent:Notify({ Title = "UI skip", Content = "Toggle \"" .. id .. "\": " .. tostring(ctl) }) end)
+        return nil
+    end
+    return ctl
 end
 
 local function addSlider(parent, opt)
@@ -2328,24 +2335,27 @@ local function addSlider(parent, opt)
     local def = tonumber(opt.Default) or (opt.Min or 0)
     dt.__state[id] = def
     local fresh = true
-    return parent:AddSlider(id, {
-        Title = title,
-        Description = opt.Description,
-        Min = tonumber(opt.Min) or 0,
-        Max = tonumber(opt.Max) or 100,
-        Default = def,
-        Rounding = rounding,
-        Callback = function(v)
-            if fresh then fresh = false; return end
-            dt.SetState(id, v, true)
-            if opt.Callback then pcall(opt.Callback, v) end
-        end,
-    })
+    return safeAdd(parent, "Slider", function()
+        return parent:AddSlider(id, {
+            Title = title,
+            Description = opt.Description,
+            Min = tonumber(opt.Min) or 0,
+            Max = tonumber(opt.Max) or 100,
+            Default = def,
+            Rounding = rounding,
+            Callback = function(v)
+                if fresh then fresh = false; return end
+                dt.SetState(id, v, true)
+                if opt.Callback then pcall(opt.Callback, v) end
+            end,
+        })
+    end, id)
 end
 
 local function addDropdown(parent, opt)
     local id = opt.Id
     local isMulti = opt.Multi == true
+    local isMulti2 = opt.Multi2 == true
     local values = opt.Options or {}
     if isMulti then
         local sel = {}
@@ -2355,51 +2365,59 @@ local function addDropdown(parent, opt)
         local list = {}
         for val in pairs(sel) do table.insert(list, val) end
         dt.__state[id] = list
+        return safeAdd(parent, "DropdownMulti", function()
+            return parent:AddDropdown(id, {
+                Title = opt.Title,
+                Description = opt.Description,
+                Values = values,
+                Multi = true,
+                Default = list,
+                Callback = function(v)
+                    local out = {}
+                    if typeof(v) == "table" then
+                        for k, on in pairs(v) do if on then table.insert(out, k) end end
+                        table.sort(out)
+                    end
+                    dt.SetState(id, out, true)
+                    if opt.Callback then pcall(opt.Callback, dt.__state[id]) end
+                end,
+            })
+        end, id)
+    end
+    local def = opt.Default or values[1]
+    dt.__state[id] = def
+    return safeAdd(parent, "Dropdown", function()
         return parent:AddDropdown(id, {
             Title = opt.Title,
             Description = opt.Description,
             Values = values,
-            Multi = true,
-            Default = list,
+            Default = def,
             Callback = function(v)
-                local out = {}
-                if typeof(v) == "table" then
-                    for k, on in pairs(v) do if on then table.insert(out, k) end end
-                    table.sort(out)
-                end
+                local out = v and tostring(v) or values[1]
                 dt.SetState(id, out, true)
                 if opt.Callback then pcall(opt.Callback, dt.__state[id]) end
             end,
         })
-    end
-    local def = opt.Default or values[1]
-    dt.__state[id] = def
-    return parent:AddDropdown(id, {
-        Title = opt.Title,
-        Description = opt.Description,
-        Values = values,
-        Default = def,
-        Callback = function(v)
-            local out = v and tostring(v) or values[1]
-            dt.SetState(id, out, true)
-            if opt.Callback then pcall(opt.Callback, dt.__state[id]) end
-        end,
-    })
+    end, id)
 end
 
 local function addButton(parent, opt)
-    return parent:AddButton({
-        Title = opt.Title,
-        Description = opt.Description,
-        Callback = opt.Callback or function() end,
-    })
+    return safeAdd(parent, "Button", function()
+        return parent:AddButton({
+            Title = opt.Title,
+            Description = opt.Description,
+            Callback = opt.Callback or function() end,
+        })
+    end, opt.Title)
 end
 
 local function addParagraph(parent, opt)
-    return parent:AddParagraph({
-        Title = opt.Title or "Info",
-        Content = opt.Content or "",
-    })
+    return safeAdd(parent, "Paragraph", function()
+        return parent:AddParagraph({
+            Title = opt.Title or "Info",
+            Content = opt.Content or "",
+        })
+    end, opt.Title)
 end
 
 local function addInput(parent, opt)
@@ -2448,13 +2466,34 @@ end
 -- ============================================================
 local fq = {}
 
+local function safeTab(window, title)
+    local ok, tab = pcall(function() return window:AddTab({ Title = title }) end)
+    if not ok then
+        pcall(function() Fluent:Notify({ Title = "UI skip", Content = "Tab \"" .. title .. "\": " .. tostring(tab) }) end)
+        return nil
+    end
+    return tab
+end
+
+local addTab = safeTab
+
+local function addSectionSafe(parent, title)
+    local ok, sec = pcall(function() return parent:AddSection(title) end)
+    if not ok then
+        pcall(function() Fluent:Notify({ Title = "UI skip", Content = "Section \"" .. title .. "\": " .. tostring(sec) }) end)
+        return nil
+    end
+    return sec
+end
+
 if Window then
     -- HOME
-    local tabHome = Window:AddTab({ Title = "Home" })
-    local secSession = tabHome:AddSection("Session")
-    local secAccount = tabHome:AddSection("Account")
-    local secQuick = tabHome:AddSection("Quick Actions")
-    local secStart = tabHome:AddSection("Quick Start")
+    local tabHome = addTab(Window, "Home")
+    if tabHome then
+    local secSession = addSectionSafe(tabHome, "Session")
+    local secAccount = addSectionSafe(tabHome, "Account")
+    local secQuick = addSectionSafe(tabHome, "Quick Actions")
+    local secStart = addSectionSafe(tabHome, "Quick Start")
 
     fq.statusRow = addStatusRow(secSession, "Automation", "Ready")
     fq.statusRow:SetStatus("Success")
@@ -2493,11 +2532,13 @@ if Window then
         Content = "Empty multi-select filters mean everything matches." })
 
     -- FARM
-    local tabFarm = Window:AddTab({ Title = "Farmx" })
-    local secSteal = tabFarm:AddSection("Steal Eggs")
-    local secEgg = tabFarm:AddSection("Egg Handling")
-    local secHop = tabFarm:AddSection("Server Hop")
-    local secOrder = tabFarm:AddSection("Task Order")
+    end
+    local tabFarm = addTab(Window, "Farmx")
+    if tabFarm then
+    local secSteal = addSectionSafe(tabFarm, "Steal Eggs")
+    local secEgg = addSectionSafe(tabFarm, "Egg Handling")
+    local secHop = addSectionSafe(tabFarm, "Server Hop")
+    local secOrder = addSectionSafe(tabFarm, "Task Order")
 
     addToggle(secSteal, { Id = "AutoStealSelected", Title = "Auto Steal Selected", Description = "Use filters below", Default = false, Callback = function(fa)
         if fa == false and not r.stealingEnabled() then r.stealCleanup() end
@@ -2512,13 +2553,13 @@ if Window then
     addSlider(secSteal, { Id = "StealMoveSpeed", Title = "Steal Speed", Min = 16, Max = 2000, Default = bj, Step = 1, Suffix = "studs/s" })
     addSlider(secSteal, { Id = "BypassReturnSpeed", Title = "Return Speed", Min = 16, Max = 2000, Default = bk, Step = 1, Suffix = "studs/s" })
 
-    secSteal:AddSection("Target filters")
+    addSectionSafe(secSteal, "Target filters")
     addDropdown(secSteal, { Id = "StealZones", Title = "Areas", Options = bd, Multi = true, Default = {} })
     addDropdown(secSteal, { Id = "StealRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
     addDropdown(secSteal, { Id = "StealMutations", Title = "Mutations", Options = av, Multi = true, Default = {} })
     addDropdown(secSteal, { Id = "StealPriority", Title = "Target Priority", Options = aw, Default = "Rarest" })
     addSlider(secSteal, { Id = "StealBigEggScale", Title = "Minimum Big Egg Size", Min = 1, Max = 50, Default = 1.5, Step = 0.1, Suffix = "x" })
-    secSteal:AddSection("Carry behavior")
+    addSectionSafe(secSteal, "Carry behavior")
     addToggle(secSteal, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
     addToggle(secSteal, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
 
@@ -2541,9 +2582,11 @@ if Window then
     end
 
     -- PETS
-    local tabPets = Window:AddTab({ Title = "Pets" })
-    local secOwn = tabPets:AddSection("Pets")
-    local secFuse = tabPets:AddSection("Auto Fuse")
+    end
+    local tabPets = addTab(Window, "Pets")
+    if tabPets then
+    local secOwn = addSectionSafe(tabPets, "Pets")
+    local secFuse = addSectionSafe(tabPets, "Auto Fuse")
 
     addToggle(secOwn, { Id = "AutoEquipBest", Title = "Auto Equip Best Pets", Default = false })
     addToggle(secOwn, { Id = "AutoDeleteOwnPets", Title = "Hide Own Pet Renders", Default = false })
@@ -2561,9 +2604,11 @@ if Window then
     addButton(secFuse, { Title = "Fuse Now", Callback = function() task.spawn(function() r.runAutoFusePets(true) end) end })
 
     -- SELL (auto sell eggs + pets merged)
-    local tabSell = Window:AddTab({ Title = "Sell" })
-    local secSellEggs = tabSell:AddSection("Eggs")
-    local secSellPets = tabSell:AddSection("Pets")
+    end
+    local tabSell = addTab(Window, "Sell")
+    if tabSell then
+    local secSellEggs = addSectionSafe(tabSell, "Eggs")
+    local secSellPets = addSectionSafe(tabSell, "Pets")
 
     addToggle(secSellEggs, { Id = "AutoSellEggs", Title = "Auto Sell Eggs", Default = false })
     addDropdown(secSellEggs, { Id = "SellEggRarities", Title = "Sell Rarities", Options = at, Multi = true, Default = {} })
@@ -2578,11 +2623,13 @@ if Window then
     addSlider(secSellPets, { Id = "SellInterval", Title = "Sell Interval", Min = 1, Max = 120, Default = 6, Step = 1, Suffix = "s" })
 
     -- PROGRESS
-    local tabProg = Window:AddTab({ Title = "Progress" })
-    local secUp = tabProg:AddSection("Upgrades")
-    local secRew = tabProg:AddSection("Rewards")
-    local secEqp = tabProg:AddSection("Equipment")
-    local secTrn = tabProg:AddSection("Training")
+    end
+    local tabProg = addTab(Window, "Progress")
+    if tabProg then
+    local secUp = addSectionSafe(tabProg, "Upgrades")
+    local secRew = addSectionSafe(tabProg, "Rewards")
+    local secEqp = addSectionSafe(tabProg, "Equipment")
+    local secTrn = addSectionSafe(tabProg, "Training")
 
     addToggle(secUp, { Id = "AutoUpgrades", Title = "Auto Buy Upgrades", Default = false })
     addDropdown(secUp, { Id = "UpgradeTypes", Title = "Upgrade Types", Options = ay, Multi = true, Default = { "Base", "Treadmill" } })
@@ -2596,10 +2643,12 @@ if Window then
     addToggle(secTrn, { Id = "AutoTreadmill", Title = "Auto Treadmill Training", Default = false })
 
     -- PLAYER
-    local tabPlayer = Window:AddTab({ Title = "Player" })
-    local secEsp = tabPlayer:AddSection("ESP")
-    local secMove = tabPlayer:AddSection("Movement")
-    local secTp = tabPlayer:AddSection("Teleports")
+    end
+    local tabPlayer = addTab(Window, "Player")
+    if tabPlayer then
+    local secEsp = addSectionSafe(tabPlayer, "ESP")
+    local secMove = addSectionSafe(tabPlayer, "Movement")
+    local secTp = addSectionSafe(tabPlayer, "Teleports")
 
     addToggle(secEsp, { Id = "EspWorldEggs", Title = "World Egg ESP", Default = false })
     addToggle(secEsp, { Id = "EspCarriedEggs", Title = "Carried and Dropped Egg ESP", Default = false })
@@ -2615,7 +2664,7 @@ if Window then
     addSlider(secMove, { Id = "JumpPower", Title = "Jump Power", Min = 10, Max = 500, Default = 50, Step = 1 })
     addToggle(secMove, { Id = "InfJump", Title = "Infinite Jump", Default = false })
     addToggle(secMove, { Id = "NoClip", Title = "NoClip", Default = false })
-    secMove:AddSection("Fly")
+    addSectionSafe(secMove, "Fly")
     addToggle(secMove, { Id = "Fly", Title = "Fly", Default = false, Callback = function(go)
         if not go then
             local gp = r.getHumanoid(); if gp then gp.PlatformStand = false end
@@ -2635,11 +2684,14 @@ if Window then
     end })
 
     -- SYSTEM
-    local tabSys = Window:AddTab({ Title = "System" })
-    local secSes = tabSys:AddSection("Session")
-    local secPerf = tabSys:AddSection("Performance")
-    local secWeb = tabSys:AddSection("Webhooks")
-    local secAbout = tabSys:AddSection("About")
+    end
+    local tabSys = addTab(Window, "System")
+    if tabSys then
+    end
+    local secSes = addSectionSafe(tabSys, "Session")
+    local secPerf = addSectionSafe(tabSys, "Performance")
+    local secWeb = addSectionSafe(tabSys, "Webhooks")
+    local secAbout = addSectionSafe(tabSys, "About")
 
     addToggle(secSes, { Id = "AntiAfk", Title = "Anti-AFK", Default = true })
     addToggle(secSes, { Id = "AntiGameplayPause", Title = "No Gameplay Paused", Default = true,
@@ -2678,7 +2730,7 @@ if Window then
         pcall(function() setclipboard(n) end)
         r.notify("Copied", "Discord link copied", "Success", 3)
     end })
-    secAbout:AddSection("Danger Zone")
+    addSectionSafe(secAbout, "Danger Zone")
     addButton(secAbout, { Title = "Unload Script", Callback = function() r.unload() end })
 end
 
@@ -2974,3 +3026,4 @@ r.applyFpsCap(r.optionValue("FpsCap", 60))
 
 r.notify("NiCH HUB", "Ready - press the floating icon", "Success", 5)
 if fq.statusRow then fq.statusRow:SetStatus("Success") end
+
