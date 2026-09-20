@@ -43,7 +43,7 @@ local l       = game:GetService("TweenService")
 local m = b.LocalPlayer or b.PlayerAdded:Wait()
 pcall(function() m:WaitForChild("PlayerGui", 10) end)
 
-local n = "https://discord.gg/kptjwzKWgX"
+local n = "isi nanti aja"
 local o  = "rbxassetid://131679774975668"
 local p  = "NiCH Hub"
 local q     = "Discord: " .. n
