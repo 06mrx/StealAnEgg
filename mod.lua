@@ -336,6 +336,7 @@ local bw = nil
 local bx = false
 local by = {}
 local bz = false
+local returnEggUid = nil
 local ca = false
 local cb = 0
 local cc = 0
@@ -1020,6 +1021,29 @@ function r.tryCarryEgg(dq)
     return bu
 end
 
+function r.refreshCarryEgg()
+    if not bu or typeof(aj.RequestCarryAreaEgg) ~= "function" then return false end
+    local du = nil
+    if typeof(returnEggUid) == "string" and returnEggUid ~= "" then
+        du = returnEggUid
+    else
+        for _, ds in ipairs(r.getAreaEggs()) do
+            if ds.State == "Carried" then du = ds.Uid; break end
+        end
+    end
+    if not du then return false end
+    local dv = nil
+    if al.IsFirstAreaUid and al.BuildSlotKey and al.IsFirstAreaUid(du) then
+        for _, ds in ipairs(r.getAreaEggs()) do
+            if ds.Uid == du then
+                dv = al.BuildSlotKey(ds.AreaId, ds.NestId)
+                break
+            end
+        end
+    end
+    return pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
+end
+
 -- ============================================================
 -- STEAL EGG FLOW
 -- 1) Tới target
@@ -1127,6 +1151,7 @@ function r.runAutoDropEgg()
 end
 function r.runAutoReturn()
     if not bu then return false end
+    local rr = r.getRoot(); if rr then pcall(function() rr.Anchored = false end) end
     local dq = function() return r.isOn("AutoReturn") and bu end
     if not r.returnToBaseBypass(dq) then return false end
     local dr = r.getRoot()
@@ -1143,6 +1168,13 @@ if aj.AreaEggCarryStateChanged and typeof(aj.AreaEggCarryStateChanged.Connect) =
         if ds then
             bv = bv + 1
             if bw then bw(dq) end
+        end
+        if dr then
+            if typeof(dq) == "table" and typeof(dq.Uid) == "string" then
+                returnEggUid = dq.Uid
+            end
+        else
+            returnEggUid = nil
         end
         bu = dr
     end))
@@ -2916,11 +2948,17 @@ local function gc()
         bx = true; pcall(r.runAutoDropEgg); bx = false; return
     end
     if r.isOn("AutoReturn") and bu then
-        if returnReadyAt == nil then returnReadyAt = os.clock() end
         local delay = tonumber(r.optionValue("AutoReturnDelay", 2.5)) or 2.5
+        if returnReadyAt == nil then
+            returnReadyAt = os.clock()
+            local rr = r.getRoot(); if rr then pcall(function() rr.Anchored = true end) end
+        end
+        pcall(r.refreshCarryEgg)
         if delay > 0 and os.clock() - returnReadyAt < delay then return end
+        local rr = r.getRoot(); if rr then pcall(function() rr.Anchored = false end) end
         bx = true; pcall(r.runAutoReturn); bx = false
     else
+        local rr = r.getRoot(); if rr then pcall(function() rr.Anchored = false end) end
         returnReadyAt = nil
     end
 end
