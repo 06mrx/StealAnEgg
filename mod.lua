@@ -531,6 +531,27 @@ function r.getZoneLaneCenter(dq)
     if dt and du then return Vector3.new(du.Position.X, r.getLaneY(), r.getLaneZ()) end
     return nil
 end
+function r.getArenaBounds()
+    if not de then return nil end
+    local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
+    local found = false
+    for _, dr in ipairs(de:GetChildren()) do
+        if dr:IsA("Model") then
+            local ds = dr:FindFirstChild("Bounds")
+            if ds and ds:IsA("BasePart") then
+                local dt = ds.Position
+                local du = ds.Size
+                minX = math.min(minX, dt.X - du.X / 2)
+                maxX = math.max(maxX, dt.X + du.X / 2)
+                minZ = math.min(minZ, dt.Z - du.Z / 2)
+                maxZ = math.max(maxZ, dt.Z + du.Z / 2)
+                found = true
+            end
+        end
+    end
+    if not found then return nil end
+    return { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }
+end
 function r.stripCheatMovers(dq)
     if not dq then return end
     for _, dr in ipairs(dq:GetChildren()) do
@@ -847,6 +868,16 @@ function r.bypassMoveTo(dq, dr, ds, eeAlt)
     dy.Parent = dt
 
     local dz, ea = false, os.clock() + 15
+    local bn = r.getArenaBounds()
+    local bmN = 25
+    if bn then
+        local bx, cx = bn.minX + bmN, bn.maxX - bmN
+        local bz, cz = bn.minZ + bmN, bn.maxZ - bmN
+        if bx > cx then bx, cx = (bx + cx) / 2, (bx + cx) / 2 end
+        if bz > cz then bz, cz = (bz + cz) / 2, (bz + cz) / 2 end
+        bn.loX, bn.hiX = bx, cx
+        bn.loZ, bn.hiZ = bz, cz
+    end
     while s and os.clock() < ea do
         if dr and not dr() then break end
         dt = r.getRoot(); if not dt then break end
@@ -854,7 +885,18 @@ function r.bypassMoveTo(dq, dr, ds, eeAlt)
         local ec = eb.Magnitude
         if ec <= bo then dz = true; break end
         local ed = eb.Unit
-        dx.Velocity = ed * ds
+        local vd = ed * ds
+        if bn then
+            local px = math.clamp(dt.Position.X + vd.X * 0.1, bn.loX, bn.hiX)
+            local pz = math.clamp(dt.Position.Z + vd.Z * 0.1, bn.loZ, bn.hiZ)
+            local ex = px - dt.Position.X
+            local ez = pz - dt.Position.Z
+            local eh = math.sqrt(ex * ex + ez * ez)
+            if eh > 0.001 then
+                vd = Vector3.new(ex, ed.Y, ez) * (1 / eh) * ds
+            end
+        end
+        dx.Velocity = vd
         local ee = Vector3.new(ed.X, 0, ed.Z)
         if ee.Magnitude > 0.001 then
             dy.CFrame = CFrame.lookAt(dt.Position, dt.Position + ee.Unit)
