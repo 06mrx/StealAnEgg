@@ -1053,20 +1053,68 @@ end
 
 function r.finalizeCarryReturn()
     if not bu or typeof(aj.RequestCarryAreaEgg) ~= "function" then return false end
-    local du, dv = r.carriedEggKey()
+    local du = r.carriedEggKey()
     if not du then return false end
+    local dq = { Name = du }
 
-    r.holdAtPosition(bp, function() return r.isOn("AutoReturn") and bu end)
+    local ds = r.getRoot()
+    if not ds then return false end
 
-    if not bu then
-        pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
-    end
-    local t1 = os.clock() + 1.5
-    while s and r.isOn("AutoReturn") and not bu and os.clock() < t1 do
-        pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
+    -- 2) Nhặt lần 1 (xác nhận giữ trứng tại vị trí hiện tại)
+    r.waitFor(bq.GrabDelay, 0.04, function()
+        ds = r.getRoot()
+        if ds then
+            local dt = r.groundedY(ds.X, ds.Z, ds.Y)
+            r.placeRoot(ds, CFrame.new(ds.X, dt, ds.Z))
+        end
+        if not r.isOn("AutoReturn") then return true end
+        if not bu then r.tryCarryEgg(dq) end
+        return bu == true
+    end)
+
+    local dt = os.clock() + 2.5
+    while s and r.isOn("AutoReturn") and not bu and os.clock() < dt do
+        ds = r.getRoot()
+        if ds then
+            local dx = r.groundedY(ds.X, ds.Z, ds.Y)
+            r.placeRoot(ds, CFrame.new(ds.X, dx, ds.Z))
+        end
+        r.tryCarryEgg(dq)
+        if bu then break end
         task.wait(0.05)
     end
-    return bu
+
+    if not bu then return false end
+
+    -- 3) Đứng chặt 3s (Anchored + zero velocity)
+    do
+        local dy = r.getRoot()
+        if dy then
+            pcall(function() dy.Anchored = true end)
+            dy.AssemblyLinearVelocity  = Vector3.zero
+            dy.AssemblyAngularVelocity = Vector3.zero
+            c.Heartbeat:Wait()
+        end
+    end
+    r.holdAtPosition(bp, function() return r.isOn("AutoReturn") and bu end)
+
+    -- 4) Nhặt lần 2
+    if not s or not r.isOn("AutoReturn") then return false end
+    if not bu then r.tryCarryEgg(dq); task.wait(0.1) end
+    local dz = os.clock() + 1.5
+    while s and r.isOn("AutoReturn") and not bu and os.clock() < dz do
+        r.tryCarryEgg(dq); task.wait(0.05)
+    end
+
+    -- 5) Về base bằng bypass
+    r.returnToBaseBypass(function() return r.isOn("AutoReturn") and bu end)
+
+    -- 6) Confirm
+    local dw = os.clock() + 3
+    while s and r.isOn("AutoReturn") and bu and os.clock() < dw do
+        task.wait(0.1)
+    end
+    return true
 end
 
 -- ============================================================
