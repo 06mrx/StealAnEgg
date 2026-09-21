@@ -2564,6 +2564,7 @@ do
 
     dt.AddDivider(secSteal, { Title = "Carry behavior" })
     dt.AddToggle(secSteal, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
+    dt.AddSlider(secSteal, { Id = "AutoReturnDelay", Title = "Return Start Delay", Min = 0, Max = 8, Default = 2.5, Step = 0.5, Suffix = " s" })
     dt.AddToggle(secSteal, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
 
     local secPlace = dt.AddSection(farmTab, { Title = "Place & Hatch" })
@@ -2908,13 +2909,19 @@ local function fz(ga, gb)
     return true
 end
 
+local returnReadyAt
 local function gc()
     if bx then return end
     if r.isOn("AutoDropEgg") and bu then
         bx = true; pcall(r.runAutoDropEgg); bx = false; return
     end
     if r.isOn("AutoReturn") and bu then
+        if returnReadyAt == nil then returnReadyAt = os.clock() end
+        local delay = tonumber(r.optionValue("AutoReturnDelay", 2.5)) or 2.5
+        if delay > 0 and os.clock() - returnReadyAt < delay then return end
         bx = true; pcall(r.runAutoReturn); bx = false
+    else
+        returnReadyAt = nil
     end
 end
 
