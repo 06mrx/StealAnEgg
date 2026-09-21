@@ -1056,6 +1056,8 @@ function r.finalizeCarryReturn()
     local du, dv = r.carriedEggKey()
     if not du then return false end
 
+    r.holdAtPosition(bp, function() return r.isOn("AutoReturn") and bu end)
+
     if aj.RequestDropHeldAreaEgg then
         pcall(function() aj.RequestDropHeldAreaEgg("PlayerRequest") end)
     end
