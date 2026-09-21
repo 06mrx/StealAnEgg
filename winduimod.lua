@@ -2947,7 +2947,7 @@ r.track(c.Heartbeat:Connect(function()
 
     if fz("core", 0.35) then
         task.spawn(function()
-            if r.stealingEnabled() then r.swapStealHumanoid() end
+if r.stealingEnabled() or bu then r.swapStealHumanoid() end
             gc()
             gd()
         end)
