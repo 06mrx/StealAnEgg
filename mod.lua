@@ -811,7 +811,7 @@ function r.isNearPlot()
     return dr ~= nil and (dq.Position - dr).Magnitude <= 30
 end
 
-function r.bypassMoveTo(dq, dr, ds)
+function r.bypassMoveTo(dq, dr, ds, eeAlt)
     if typeof(dq) ~= "Vector3" or not s then return false end
     ds = bm(ds or r.bypassSpeed())
     local dt = r.getRoot(); if not dt then return false end
@@ -825,6 +825,7 @@ function r.bypassMoveTo(dq, dr, ds)
 
     local dv = r.groundedY(dq.X, dq.Z, dt.Position.Y)
     local dw = Vector3.new(dq.X, dv, dq.Z)
+    if tonumber(eeAlt) and eeAlt > 0 then dw = Vector3.new(dq.X, dv + eeAlt, dq.Z) end
     if (dt.Position - dw).Magnitude <= bo then
         if du then du.PlatformStand = false end
         return true
@@ -912,7 +913,8 @@ function r.returnToBaseBypass(dq)
     local dr = r.getBasePosition()
     if not dr then return false end
     if dq and not dq() then return false end
-    return r.bypassMoveTo(Vector3.new(dr.X, dr.Y + 3, dr.Z), dq, r.bypassSpeed())
+    local eeAlt = tonumber(r.optionValue("ReturnFlyHeight", 40)) or 40
+    return r.bypassMoveTo(Vector3.new(dr.X, dr.Y + 3, dr.Z), dq, r.bypassSpeed(), eeAlt)
 end
 function r.returnToBase(dq) return r.returnToBaseBypass(dq) end
 function r.ensureAtPlot(dq)
@@ -1126,7 +1128,11 @@ end
 -- 5) Về base bằng bypass
 -- 6) Confirm -> loop
 -- ============================================================
-function r.stealEgg(dq)
+function r.findEggPart(dq)
+    if typeof(dq) ~= "string" or not dg then return nil end
+    return dg:FindFirstChild(dq)
+end
+function r.stealEggPickup(dq)
     r.swapStealHumanoid()
     if not r.prepareStealHumanoid() then return false end
 
@@ -1151,8 +1157,8 @@ function r.stealEgg(dq)
     r.waitFor(bq.GrabDelay, 0.04, function()
         ds = r.getRoot()
         if ds then
-            local dt = r.groundedY(dr.X, dr.Z, dr.Y)
-            r.placeRoot(ds, CFrame.new(dr.X, dt, dr.Z))
+            local dt2 = r.groundedY(dr.X, dr.Z, dr.Y)
+            r.placeRoot(ds, CFrame.new(dr.X, dt2, dr.Z))
         end
         if not r.stealingEnabled() then return true end
         if not bu then r.tryCarryEgg(dq) end
@@ -1194,14 +1200,37 @@ function r.stealEgg(dq)
     while s and r.stealingEnabled() and not bu and os.clock() < du do
         r.tryCarryEgg(dq); task.wait(0.05)
     end
+    return bu
+end
 
-    -- 5) Về base bằng bypass
-    r.returnToBaseBypass(r.stealingEnabled)
+function r.stealEgg(dq)
+    if not dq then return false end
+    local dqUid = dq.Name
+    if not r.stealEggPickup(dq) then return false end
 
-    -- 6) Confirm vòng hoàn tất
-    local dv = os.clock() + 3
-    while s and r.stealingEnabled() and bu and os.clock() < dv do
-        task.wait(0.1)
+    -- 5) Về base bằng bypass. Nếu trứng bị rớt giữa đường (bị đánh / bẫy)
+    --    thì dừng bay, quay lại nhặt CHÍNH trứng đó ở vị trí mới.
+    local q0 = os.clock()
+    while s and r.stealingEnabled() and os.clock() - q0 < 180 do
+        if bu then
+            if r.returnToBaseBypass(function() return r.stealingEnabled() and bu end) then
+                -- 6) Confirm vòng hoàn tất
+                local q1 = os.clock() + 3
+                while s and r.stealingEnabled() and bu and os.clock() < q1 do
+                    task.wait(0.1)
+                end
+                return true
+            end
+        end
+        if not bu and r.stealingEnabled() then
+            -- trứng bị rớt -> tìm lại và re-steal
+            local dq2 = r.findEggPart(dqUid)
+            if not dq2 then dq2 = r.pickStealTarget() end
+            if not dq2 then break end
+            if not r.stealEggPickup(dq2) then break end
+            dqUid = dq2.Name
+        end
+        task.wait(0.2)
     end
     return true
 end
@@ -2669,6 +2698,7 @@ do
 
     dt.AddDivider(secSteal, { Title = "Carry behavior" })
     dt.AddToggle(secSteal, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
+    dt.AddSlider(secSteal, { Id = "ReturnFlyHeight", Title = "Return Flight Height", Min = 3, Max = 200, Default = 40, Step = 1, Suffix = " studs" })
     dt.AddToggle(secSteal, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
 
     local secPlace = dt.AddSection(farmTab, { Title = "Place & Hatch" })
