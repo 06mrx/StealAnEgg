@@ -1021,8 +1021,7 @@ function r.tryCarryEgg(dq)
     return bu
 end
 
-function r.refreshCarryEgg()
-    if not bu or typeof(aj.RequestCarryAreaEgg) ~= "function" then return false end
+function r.carriedEggKey()
     local du = nil
     if typeof(returnEggUid) == "string" and returnEggUid ~= "" then
         du = returnEggUid
@@ -1031,7 +1030,7 @@ function r.refreshCarryEgg()
             if ds.State == "Carried" then du = ds.Uid; break end
         end
     end
-    if not du then return false end
+    if not du then return nil, nil end
     local dv = nil
     if al.IsFirstAreaUid and al.BuildSlotKey and al.IsFirstAreaUid(du) then
         for _, ds in ipairs(r.getAreaEggs()) do
@@ -1041,7 +1040,45 @@ function r.refreshCarryEgg()
             end
         end
     end
+    return du, dv
+end
+
+function r.refreshCarryEgg()
+    if not bu or typeof(aj.RequestCarryAreaEgg) ~= "function" then return false end
+    local du, dv = r.carriedEggKey()
+    if not du then return false end
     return pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
+end
+
+function r.finalizeCarryReturn()
+    if not bu or typeof(aj.RequestCarryAreaEgg) ~= "function" then return false end
+    local du, dv = r.carriedEggKey()
+    if not du then return false end
+
+    pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
+
+    local secs = math.clamp(tonumber(r.optionValue("AutoReturnDelay", 2.5)) or 2.5, 0, 8)
+    local t0 = os.clock()
+    while s and bu and r.isOn("AutoReturn") and os.clock() - t0 < secs do
+        local root = r.getRoot()
+        if root then pcall(function() root.Anchored = true end) end
+        pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
+        task.wait(0.3)
+    end
+
+    if bu and aj.RequestDropHeldAreaEgg then
+        pcall(function() aj.RequestDropHeldAreaEgg("PlayerRequest") end)
+    end
+
+    local t1 = os.clock() + 1.5
+    while s and r.isOn("AutoReturn") and not bu and os.clock() < t1 do
+        pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
+        task.wait(0.05)
+    end
+
+    local root = r.getRoot()
+    if root then pcall(function() root.Anchored = false end) end
+    return bu
 end
 
 -- ============================================================
@@ -2941,25 +2978,18 @@ local function fz(ga, gb)
     return true
 end
 
-local returnReadyAt
 local function gc()
     if bx then return end
     if r.isOn("AutoDropEgg") and bu then
         bx = true; pcall(r.runAutoDropEgg); bx = false; return
     end
     if r.isOn("AutoReturn") and bu then
-        local delay = tonumber(r.optionValue("AutoReturnDelay", 2.5)) or 2.5
-        if returnReadyAt == nil then
-            returnReadyAt = os.clock()
-            local rr = r.getRoot(); if rr then pcall(function() rr.Anchored = true end) end
-        end
-        pcall(r.refreshCarryEgg)
-        if delay > 0 and os.clock() - returnReadyAt < delay then return end
-        local rr = r.getRoot(); if rr then pcall(function() rr.Anchored = false end) end
-        bx = true; pcall(r.runAutoReturn); bx = false
+        bx = true
+        if not r.stealingEnabled() then pcall(r.finalizeCarryReturn) end
+        if bu then pcall(r.runAutoReturn) end
+        bx = false
     else
         local rr = r.getRoot(); if rr then pcall(function() rr.Anchored = false end) end
-        returnReadyAt = nil
     end
 end
 
