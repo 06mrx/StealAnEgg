@@ -337,6 +337,7 @@ local bx = false
 local by = {}
 local bz = false
 local returnEggUid = nil
+local returnState = "idle"
 local ca = false
 local cb = 0
 local cc = 0
@@ -1059,7 +1060,12 @@ function r.finalizeCarryReturn()
         pcall(function() aj.RequestDropHeldAreaEgg("PlayerRequest") end)
     end
 
-    local t1 = os.clock() + 1.5
+    local tw = os.clock() + 2
+    while s and bu and os.clock() < tw do
+        task.wait(0.05)
+    end
+
+    local t1 = os.clock() + 2
     while s and r.isOn("AutoReturn") and not bu and os.clock() < t1 do
         pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
         task.wait(0.05)
@@ -2973,11 +2979,21 @@ local function gc()
         bx = true; pcall(r.runAutoDropEgg); bx = false; return
     end
     if r.isOn("AutoReturn") and bu then
-        bx = true
-        if not r.stealingEnabled() then pcall(r.finalizeCarryReturn) end
-        if bu then pcall(r.runAutoReturn) end
-        bx = false
+        if not r.stealingEnabled() then
+            if returnState == "idle" then
+                bx = true
+                pcall(r.finalizeCarryReturn)
+                if bu then returnState = "running" end
+                bx = false
+                return
+            end
+            if returnState == "running" then
+                bx = true; pcall(r.runAutoReturn); bx = false
+                return
+            end
+        end
     else
+        returnState = "idle"
         local rr = r.getRoot(); if rr then pcall(function() rr.Anchored = false end) end
     end
 end
