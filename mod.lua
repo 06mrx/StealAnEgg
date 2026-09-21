@@ -1055,18 +1055,7 @@ function r.finalizeCarryReturn()
     local du, dv = r.carriedEggKey()
     if not du then return false end
 
-    pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
-
-    local secs = math.clamp(tonumber(r.optionValue("AutoReturnDelay", 2.5)) or 2.5, 0, 8)
-    local t0 = os.clock()
-    while s and bu and r.isOn("AutoReturn") and os.clock() - t0 < secs do
-        local root = r.getRoot()
-        if root then pcall(function() root.Anchored = true end) end
-        pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
-        task.wait(0.3)
-    end
-
-    if bu and aj.RequestDropHeldAreaEgg then
+    if aj.RequestDropHeldAreaEgg then
         pcall(function() aj.RequestDropHeldAreaEgg("PlayerRequest") end)
     end
 
@@ -1076,8 +1065,9 @@ function r.finalizeCarryReturn()
         task.wait(0.05)
     end
 
-    local root = r.getRoot()
-    if root then pcall(function() root.Anchored = false end) end
+    if not bu then
+        pcall(function() return aj.RequestCarryAreaEgg(du, dv) end)
+    end
     return bu
 end
 
@@ -2633,7 +2623,6 @@ do
 
     dt.AddDivider(secSteal, { Title = "Carry behavior" })
     dt.AddToggle(secSteal, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
-    dt.AddSlider(secSteal, { Id = "AutoReturnDelay", Title = "Return Start Delay", Min = 0, Max = 8, Default = 2.5, Step = 0.5, Suffix = " s" })
     dt.AddToggle(secSteal, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
 
     local secPlace = dt.AddSection(farmTab, { Title = "Place & Hatch" })
