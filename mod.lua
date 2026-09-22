@@ -947,7 +947,7 @@ end
 -- ============================================================
 -- HOLD 3s: ĐỨNG CHẶT (Anchored). Hết 3s -> nhả anchor dứt khoát
 -- ============================================================
-function r.holdAtPosition(dq, dr)
+function r.holdAtPosition(dq, dr, eeDef)
     dq = tonumber(dq) or bp
     local ds = r.getRoot(); if not ds then return false end
     local dt = ds.CFrame
@@ -957,6 +957,10 @@ function r.holdAtPosition(dq, dr)
     local du = os.clock() + dq
     while s and os.clock() < du do
         if dr and not dr() then break end
+        if eeDef then
+            local dv = r.defenseThreat(20)
+            if dv and r.stealingEnabled() then pcall(r.swingBat) end
+        end
         ds = r.getRoot()
         if ds then
             ds.AssemblyLinearVelocity  = Vector3.zero
@@ -1105,6 +1109,24 @@ function r.findCarrierRoot(dq)
     end
     if du <= 250 then return dt end
     return nil
+end
+function r.defenseThreat(dq)
+    local dr = r.getRoot()
+    if not dr then return nil end
+    local ds = math.min(tonumber(dq) or 20, 250)
+    local dt = nil
+    for _, du in ipairs(b:GetPlayers()) do
+        if du ~= m then
+            local dv = du.Character and du.Character:FindFirstChild("HumanoidRootPart")
+            if dv then
+                local dw = (dr.Position - dv.Position).Magnitude
+                if dw <= ds then
+                    if not dt then dt = dv elseif dw < (dr.Position - dt.Position).Magnitude then dt = dv end
+                end
+            end
+        end
+    end
+    return dt
 end
 function r.chaseCandidateEggs()
     local dq = {}
@@ -1315,7 +1337,7 @@ function r.finalizeCarryReturn()
             c.Heartbeat:Wait()
         end
     end
-    r.holdAtPosition(bp, function() return r.isOn("AutoReturn") and bu end)
+    r.holdAtPosition(bp, function() return r.isOn("AutoReturn") and bu end, true)
 
     -- 4) Nhặt lần 2
     if not s or not r.isOn("AutoReturn") then return false end
@@ -1406,7 +1428,7 @@ function r.stealEggPickup(dq)
             c.Heartbeat:Wait()
         end
     end
-    r.holdAtPosition(bp, r.stealingEnabled)
+    r.holdAtPosition(bp, r.stealingEnabled, true)
 
     -- 4) Hết 3s -> không còn đứng chặt (Anchored đã nhả trong holdAtPosition)
     if not s or not r.stealingEnabled() then return false end
