@@ -531,6 +531,22 @@ function r.getZoneLaneCenter(dq)
     if dt and du then return Vector3.new(du.Position.X, r.getLaneY(), r.getLaneZ()) end
     return nil
 end
+function r.nestSideBias()
+    local duid = returnEggUid
+    if typeof(duid) ~= "string" or duid == "" then
+        for _, ds in ipairs(r.getAreaEggs()) do
+            if ds.State == "Carried" then duid = ds.Uid; break end
+        end
+    end
+    local drec = typeof(duid) == "string" and r.findAreaEggRecord(duid)
+    local daid = drec and drec.AreaId
+    local dzc = typeof(daid) == "string" and r.getZoneLaneCenter(daid)
+    local bn = r.getArenaBounds()
+    if not dzc or not bn then return nil end
+    local midX = (bn.minX + bn.maxX) / 2
+    if math.abs(dzc.X - midX) < 20 then return nil end
+    return dzc.X < midX and 1 or -1
+end
 function r.getArenaBounds()
     if not de then return nil end
     local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
@@ -832,10 +848,11 @@ function r.isNearPlot()
     return dr ~= nil and (dq.Position - dr).Magnitude <= 30
 end
 
-function r.bypassMoveTo(dq, dr, ds, eeAlt)
+function r.bypassMoveTo(dq, dr, ds, eeAlt, eeZig)
     if typeof(dq) ~= "Vector3" or not s then return false end
     ds = bm(ds or r.bypassSpeed())
     local dt = r.getRoot(); if not dt then return false end
+    local efZig = eeZig and os.clock()
 
     r.stripCheatMovers(dt); r.stopSoftMove(dt)
     local du = r.getHumanoid()
@@ -886,6 +903,15 @@ function r.bypassMoveTo(dq, dr, ds, eeAlt)
         if ec <= bo then dz = true; break end
         local ed = eb.Unit
         local vd = ed * ds
+        if efZig then
+            local eg = os.clock() - efZig
+            local eh = math.min(ec / 40, 1)
+            local ei = Vector3.new(-ed.Z, 0, ed.X)
+            if ei.Magnitude > 0.001 then
+                ei = ei.Unit
+                vd = vd + ei * (12 * math.sin(3.77 * eg) * eh)
+            end
+        end
         if bn then
             local px = math.clamp(dt.Position.X + vd.X * 0.1, bn.loX, bn.hiX)
             local pz = math.clamp(dt.Position.Z + vd.Z * 0.1, bn.loZ, bn.hiZ)
@@ -956,7 +982,17 @@ function r.returnToBaseBypass(dq)
     if not dr then return false end
     if dq and not dq() then return false end
     local eeAlt = tonumber(r.optionValue("ReturnFlyHeight", 40)) or 40
-    return r.bypassMoveTo(Vector3.new(dr.X, dr.Y + 3, dr.Z), dq, r.bypassSpeed(), eeAlt)
+    local base = Vector3.new(dr.X, dr.Y + 3, dr.Z)
+    if r.isOn("ReturnZigzag") then
+        local bias = r.nestSideBias()
+        local root = r.getRoot()
+        if bias and root then
+            local wp = root.Position + Vector3.new(bias * 60, 0, 0)
+            if not r.bypassMoveTo(wp, dq, r.bypassSpeed(), eeAlt, true) then return false end
+        end
+        return r.bypassMoveTo(base, dq, r.bypassSpeed(), eeAlt, true)
+    end
+    return r.bypassMoveTo(base, dq, r.bypassSpeed(), eeAlt)
 end
 function r.returnToBase(dq) return r.returnToBaseBypass(dq) end
 function r.ensureAtPlot(dq)
@@ -1012,7 +1048,7 @@ function r.isStealCandidate(dq, dr)
 end
 function r.pickStealTarget()
     local dq = dg and dg:GetChildren() or {}
-    if #dq == 0 then return nil end
+    if #dq == 0 and #r.getAreaEggs() == 0 then return nil end
     local dr = {}
     for _, ds in ipairs(r.getAreaEggs()) do
         if typeof(ds.Uid) == "string" then dr[ds.Uid] = ds end
@@ -1021,18 +1057,26 @@ function r.pickStealTarget()
     local dt = r.getRoot()
     local du = r.optionValue("StealPriority", "Rarest")
     local dv, dw = nil, -math.huge
+    local sc
+    sc = function(dx, dy)
+        local ea = r.getSlotEggPosition(dx)
+        local eb = dt and ea and (dt.Position - ea).Magnitude or math.huge
+        local ec
+        if du == "Nearest" then ec = -eb
+        elseif du == "Furthest" then ec = eb
+        elseif du == "Biggest Size" then ec = tonumber(dy and dy.AssetScale) or 0
+        else ec = (dy and r.eggScore(dy) or 0) * 100000 - math.min(eb, 99999) end
+        if ec > dw then dv, dw = dx, ec end
+    end
     for _, dx in ipairs(dq) do
         local dy = dr[dx.Name]
         local dz = dy and r.isStealCandidate(dy, ds) or (dy == nil and ds)
-        if dz then
-            local ea = r.getSlotEggPosition(dx)
-            local eb = dt and ea and (dt.Position - ea).Magnitude or math.huge
-            local ec
-            if du == "Nearest" then ec = -eb
-            elseif du == "Furthest" then ec = eb
-            elseif du == "Biggest Size" then ec = tonumber(dy and dy.AssetScale) or 0
-            else ec = (dy and r.eggScore(dy) or 0) * 100000 - math.min(eb, 99999) end
-            if ec > dw then dv = dx; dw = ec end
+        if dz then sc(dx, dy) end
+    end
+    for _, dy in ipairs(r.getAreaEggs()) do
+        if dy.State == "Dropped" then
+            local dx = r.findEggPart(dy.Uid)
+            if dx then sc(dx, dy) end
         end
     end
     return dv
@@ -1103,15 +1147,18 @@ function r.pickChaseHitTarget()
     return dr
 end
 function r.findBatTool()
-    local dq = { m.Character, m:FindFirstChildOfClass("Backpack") }
-    for _, dr in ipairs(dq) do
-        if dr then
-            for _, ds in ipairs(dr:GetChildren()) do
-                if ds:IsA("Tool") and ds.Name:find("Bat", 1, true) then return ds end
-            end
-        end
+    local TARGET_TOOL_NAME = "Bat [X1]"
+    local char = m.Character
+    if char then
+        local t = char:FindFirstChild(TARGET_TOOL_NAME)
+        if t and t:IsA("Tool") then return t, true end
     end
-    return nil
+    local bp = m:FindFirstChildOfClass("Backpack")
+    if bp then
+        local t = bp:FindFirstChild(TARGET_TOOL_NAME)
+        if t and t:IsA("Tool") then return t, false end
+    end
+    return nil, false
 end
 local swingRemoteEager = nil
 function r.findSwingRemote()
@@ -2878,6 +2925,7 @@ do
     dt.AddToggle(secSteal, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
     dt.AddToggle(secSteal, { Id = "AutoChaseAndHit", Title = "Auto Chase & Hit Carriers", Description = "Chase players carrying an egg when no other target is left, or when the only Divine egg is carried. Knock the egg loose with a Bat tool, then pick it up.", Default = false })
     dt.AddSlider(secSteal, { Id = "ReturnFlyHeight", Title = "Return Flight Height", Min = 3, Max = 200, Default = 40, Step = 1, Suffix = " studs" })
+    dt.AddToggle(secSteal, { Id = "ReturnZigzag", Title = "Zigzag Return Flight", Description = "Return flying with a zig-zag path; if the nest is on the left side of the lane, veer right first so players heading to that nest don't crash into us.", Default = true })
     dt.AddToggle(secSteal, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
 
     local secPlace = dt.AddSection(farmTab, { Title = "Place & Hatch" })
