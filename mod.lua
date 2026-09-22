@@ -1066,7 +1066,7 @@ function r.chaseCandidateEggs()
     local dq = {}
     local dr = r.isOn("AutoStealAll") and not r.isOn("AutoStealSelected")
     for _, ds in ipairs(r.getAreaEggs()) do
-        if typeof(ds) == "table" and ds.State == "Carried" then
+        if typeof(ds) == "table" and (ds.State == "Carried" or ds.State == "Dropped") then
             if dr or r.isBigEgg(ds) or r.matchesEggFilters(ds, "StealZones", "StealRarities", "StealMutations") then
                 table.insert(dq, ds)
             end
@@ -1074,10 +1074,14 @@ function r.chaseCandidateEggs()
     end
     return dq
 end
+function r.filterAllows(dq)
+    if r.isOn("AutoStealAll") then return true end
+    return r.isBigEgg(dq) or r.matchesEggFilters(dq, "StealZones", "StealRarities", "StealMutations")
+end
 function r.divineCarriedSolo()
     local dq = {}
     for _, ds in ipairs(r.getAreaEggs()) do
-        if r.resolveRarity(ds.AssetCategory) == "Divine" then table.insert(dq, ds) end
+        if r.resolveRarity(ds.AssetCategory) == "Divine" and r.filterAllows(ds) then table.insert(dq, ds) end
     end
     if #dq ~= 1 then return nil end
     local ds = dq[1]
@@ -1092,11 +1096,9 @@ function r.pickChaseHitTarget()
     if dq then return dq end
     local dr, ds = nil, -math.huge
     for _, dt in ipairs(r.chaseCandidateEggs()) do
-        local du = r.findCarrierRoot(dt)
-        if du then
-            local dv = r.eggScore(dt) * 100000 - math.min((r.getRoot() and (r.getRoot().Position - r.carriedEggPosition(dt)).Magnitude or 99999), 99999)
-            if dv > ds then dr, ds = { rec = dt, root = du }, dv end
-        end
+        local du = dt.State == "Carried" and r.findCarrierRoot(dt)
+        local dv = r.eggScore(dt) * 100000 - math.min((r.getRoot() and (r.getRoot().Position - r.carriedEggPosition(dt)).Magnitude or 99999), 99999)
+        if dv > ds then dr, ds = { rec = dt, root = du }, dv end
     end
     return dr
 end
@@ -1415,7 +1417,7 @@ function r.runAutoSteal()
     if r.isOn("AutoChaseAndHit") then
         local dr = r.pickChaseHitTarget()
         if dr then
-            r.runChaseAndHit(dr.rec, dr.root)
+            if dr.root then r.runChaseAndHit(dr.rec, dr.root) end
             local ds = r.findEggPart(dr.rec.Uid) or r.pickStealTarget()
             if ds then return r.stealEgg(ds) end
         end
