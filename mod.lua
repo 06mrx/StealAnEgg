@@ -531,22 +531,6 @@ function r.getZoneLaneCenter(dq)
     if dt and du then return Vector3.new(du.Position.X, r.getLaneY(), r.getLaneZ()) end
     return nil
 end
-function r.nestSideBias()
-    local duid = returnEggUid
-    if typeof(duid) ~= "string" or duid == "" then
-        for _, ds in ipairs(r.getAreaEggs()) do
-            if ds.State == "Carried" then duid = ds.Uid; break end
-        end
-    end
-    local drec = typeof(duid) == "string" and r.findAreaEggRecord(duid)
-    local daid = drec and drec.AreaId
-    local dzc = typeof(daid) == "string" and r.getZoneLaneCenter(daid)
-    local bn = r.getArenaBounds()
-    if not dzc or not bn then return nil end
-    local midX = (bn.minX + bn.maxX) / 2
-    if math.abs(dzc.X - midX) < 20 then return nil end
-    return dzc.X < midX and 1 or -1
-end
 function r.getArenaBounds()
     if not de then return nil end
     local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
@@ -848,11 +832,10 @@ function r.isNearPlot()
     return dr ~= nil and (dq.Position - dr).Magnitude <= 30
 end
 
-function r.bypassMoveTo(dq, dr, ds, eeAlt, eeZig)
+function r.bypassMoveTo(dq, dr, ds, eeAlt)
     if typeof(dq) ~= "Vector3" or not s then return false end
     ds = bm(ds or r.bypassSpeed())
     local dt = r.getRoot(); if not dt then return false end
-    local efZig = eeZig and os.clock()
 
     r.stripCheatMovers(dt); r.stopSoftMove(dt)
     local du = r.getHumanoid()
@@ -903,15 +886,6 @@ function r.bypassMoveTo(dq, dr, ds, eeAlt, eeZig)
         if ec <= bo then dz = true; break end
         local ed = eb.Unit
         local vd = ed * ds
-        if efZig then
-            local eg = os.clock() - efZig
-            local eh = math.min(ec / 40, 1)
-            local ei = Vector3.new(-ed.Z, 0, ed.X)
-            if ei.Magnitude > 0.001 then
-                ei = ei.Unit
-                vd = vd + ei * (12 * math.sin(3.77 * eg) * eh)
-            end
-        end
         if bn then
             local px = math.clamp(dt.Position.X + vd.X * 0.1, bn.loX, bn.hiX)
             local pz = math.clamp(dt.Position.Z + vd.Z * 0.1, bn.loZ, bn.hiZ)
@@ -986,17 +960,7 @@ function r.returnToBaseBypass(dq)
     if not dr then return false end
     if dq and not dq() then return false end
     local eeAlt = tonumber(r.optionValue("ReturnFlyHeight", 40)) or 40
-    local base = Vector3.new(dr.X, dr.Y + 3, dr.Z)
-    if r.isOn("ReturnZigzag") then
-        local bias = r.nestSideBias()
-        local root = r.getRoot()
-        if bias and root then
-            local wp = root.Position + Vector3.new(bias * 60, 0, 0)
-            if not r.bypassMoveTo(wp, dq, r.bypassSpeed(), eeAlt, true) then return false end
-        end
-        return r.bypassMoveTo(base, dq, r.bypassSpeed(), eeAlt, true)
-    end
-    return r.bypassMoveTo(base, dq, r.bypassSpeed(), eeAlt)
+    return r.bypassMoveTo(Vector3.new(dr.X, dr.Y + 3, dr.Z), dq, r.bypassSpeed(), eeAlt)
 end
 function r.returnToBase(dq) return r.returnToBaseBypass(dq) end
 function r.ensureAtPlot(dq)
@@ -2946,8 +2910,7 @@ do
     dt.AddDivider(secSteal, { Title = "Carry behavior" })
     dt.AddToggle(secSteal, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
     dt.AddToggle(secSteal, { Id = "AutoChaseAndHit", Title = "Auto Chase & Hit Carriers", Description = "Chase players carrying an egg when no other target is left, or when the only Divine egg is carried. Knock the egg loose with a Bat tool, then pick it up.", Default = false })
-    dt.AddSlider(secSteal, { Id = "ReturnFlyHeight", Title = "Return Flight Height", Min = 3, Max = 200, Default = 40, Step = 1, Suffix = " studs" })
-    dt.AddToggle(secSteal, { Id = "ReturnZigzag", Title = "Zigzag Return Flight", Description = "Return flying with a zig-zag path; if the nest is on the left side of the lane, veer right first so players heading to that nest don't crash into us.", Default = true })
+    dt.AddSlider(secSteal, { Id = "ReturnFlyHeight", Title = "Return Flight Height", Min = 3, Max = 30, Default = 30, Step = 1, Suffix = " studs" })
     dt.AddToggle(secSteal, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
 
     local secPlace = dt.AddSection(farmTab, { Title = "Place & Hatch" })
