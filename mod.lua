@@ -1410,17 +1410,17 @@ function r.runAutoSteal()
         if dq then dq:InvokeServer() end
     end)
     task.wait(0.1)
+    local dq = r.pickStealTarget()
+    if dq then return r.stealEgg(dq) end
     if r.isOn("AutoChaseAndHit") then
-        local dq = r.pickChaseHitTarget()
-        if dq then
-            r.runChaseAndHit(dq.rec, dq.root)
-            local dr = r.findEggPart(dq.rec.Uid) or r.pickStealTarget()
-            if dr then return r.stealEgg(dr) end
+        local dr = r.pickChaseHitTarget()
+        if dr then
+            r.runChaseAndHit(dr.rec, dr.root)
+            local ds = r.findEggPart(dr.rec.Uid) or r.pickStealTarget()
+            if ds then return r.stealEgg(ds) end
         end
     end
-    local dq = r.pickStealTarget()
-    if not dq then return false end
-    return r.stealEgg(dq)
+    return false
 end
 function r.runAutoDropEgg()
     if not bu then return false end
