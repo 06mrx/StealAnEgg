@@ -1037,6 +1037,132 @@ function r.pickStealTarget()
     end
     return dv
 end
+function r.carriedEggPosition(dq)
+    if typeof(dq) ~= "table" then return nil end
+    local dr = dq.BottomCFrame or dq.BoundsCFrame
+    if typeof(dr) == "CFrame" then return dr.Position end
+    local ds = typeof(dq.Uid) == "string" and r.findEggPart(dq.Uid)
+    if ds then return r.getSlotEggPosition(ds) end
+    return nil
+end
+function r.findCarrierRoot(dq)
+    local dr = r.carriedEggPosition(dq)
+    if not dr then return nil end
+    local ds = r.getRoot()
+    local dt, du = nil, math.huge
+    for _, dv in ipairs(b:GetPlayers()) do
+        if dv ~= m then
+            local dw = dv.Character and dv.Character:FindFirstChild("HumanoidRootPart")
+            if dw then
+                local dx = (dr - dw.Position).Magnitude
+                if dx < du then du, dt = dx, dw end
+            end
+        end
+    end
+    if du <= 250 then return dt end
+    return nil
+end
+function r.chaseCandidateEggs()
+    local dq = {}
+    local dr = r.isOn("AutoStealAll") and not r.isOn("AutoStealSelected")
+    for _, ds in ipairs(r.getAreaEggs()) do
+        if typeof(ds) == "table" and ds.State == "Carried" then
+            if dr or r.isBigEgg(ds) or r.matchesEggFilters(ds, "StealZones", "StealRarities", "StealMutations") then
+                table.insert(dq, ds)
+            end
+        end
+    end
+    return dq
+end
+function r.divineCarriedSolo()
+    local dq = {}
+    for _, ds in ipairs(r.getAreaEggs()) do
+        if r.resolveRarity(ds.AssetCategory) == "Divine" then table.insert(dq, ds) end
+    end
+    if #dq ~= 1 then return nil end
+    local ds = dq[1]
+    if ds.State ~= "Carried" then return nil end
+    local dt = r.findCarrierRoot(ds)
+    if not dt then return nil end
+    return { rec = ds, root = dt }
+end
+function r.pickChaseHitTarget()
+    if not r.isOn("AutoChaseAndHit") then return nil end
+    local dq = r.divineCarriedSolo()
+    if dq then return dq end
+    local dr, ds = nil, -math.huge
+    for _, dt in ipairs(r.chaseCandidateEggs()) do
+        local du = r.findCarrierRoot(dt)
+        if du then
+            local dv = r.eggScore(dt) * 100000 - math.min((r.getRoot() and (r.getRoot().Position - r.carriedEggPosition(dt)).Magnitude or 99999), 99999)
+            if dv > ds then dr, ds = { rec = dt, root = du }, dv end
+        end
+    end
+    return dr
+end
+function r.findBatTool()
+    local dq = { m.Character, m:FindFirstChildOfClass("Backpack") }
+    for _, dr in ipairs(dq) do
+        if dr then
+            for _, ds in ipairs(dr:GetChildren()) do
+                if ds:IsA("Tool") and ds.Name:find("Bat", 1, true) then return ds end
+            end
+        end
+    end
+    return nil
+end
+local swingRemoteEager = nil
+function r.findSwingRemote()
+    if swingRemoteEager ~= nil then return swingRemoteEager end
+    for _, dr in ipairs({ "RequestSwing", "SwingTool", "MeleeSwing", "KnockCarrierEgg", "AskSwingEggTool", "SwingEggToolCarrier" }) do
+        local ds = r.findRemoteContains(dr)
+        if ds then swingRemoteEager = ds; return ds end
+    end
+    swingRemoteEager = false
+    return nil
+end
+function r.swingBat()
+    local dq = r.findBatTool()
+    if not dq then return false end
+    local dr = r.getHumanoid()
+    if dr then pcall(function() dr:EquipTool(dq) end) end
+    pcall(function() dq:Activate() end)
+    if aj.RequestEquipTool then pcall(aj.RequestEquipTool, dq.Name) end
+    local ds = dq:FindFirstChildOfClass("RemoteEvent")
+    if ds then pcall(function() ds:FireServer() end) end
+    local dt = r.findSwingRemote()
+    if dt then pcall(function() dt:FireServer(m.Name) end) end
+    return true
+end
+function r.runChaseAndHit(dq, targetRoot)
+    if not dq or not targetRoot then return false end
+    local dr = os.clock()
+    while s and r.isOn("AutoChaseAndHit") and r.stealingEnabled() and os.clock() - dr < 120 do
+        local ds = r.findAreaEggRecord(dq.Uid)
+        if not ds or ds.State ~= "Carried" then break end
+        if not targetRoot.Parent then
+            targetRoot = r.findCarrierRoot(ds)
+            if not targetRoot then break end
+        end
+        local dt = r.getRoot()
+        local du = dt and targetRoot and (dt.Position - targetRoot.Position).Magnitude or 999
+        if du > 8 then
+            local bn = r.getArenaBounds()
+            local dv = du > 250 and nil or (bn and Vector3.new(
+                math.clamp(targetRoot.Position.X, bn.minX + 25, bn.maxX - 25),
+                targetRoot.Position.Y,
+                math.clamp(targetRoot.Position.Z, bn.minZ + 25, bn.maxZ - 25)) or targetRoot.Position)
+            if dv and not r.bypassMoveTo(dv, function() return r.isOn("AutoChaseAndHit") and r.stealingEnabled() end, r.bypassSpeed(), 4) then
+                break
+            end
+        else
+            r.swingBat()
+            task.wait(0.08)
+        end
+        task.wait(0.05)
+    end
+    return true
+end
 function r.stealingEnabled() return r.isOn("AutoStealSelected") or r.isOn("AutoStealAll") or r.isOn("StealBigEggs") end
 function r.eggInventoryCount()
     local dq = r.getSave()
@@ -1284,6 +1410,14 @@ function r.runAutoSteal()
         if dq then dq:InvokeServer() end
     end)
     task.wait(0.1)
+    if r.isOn("AutoChaseAndHit") then
+        local dq = r.pickChaseHitTarget()
+        if dq then
+            r.runChaseAndHit(dq.rec, dq.root)
+            local dr = r.findEggPart(dq.rec.Uid) or r.pickStealTarget()
+            if dr then return r.stealEgg(dr) end
+        end
+    end
     local dq = r.pickStealTarget()
     if not dq then return false end
     return r.stealEgg(dq)
@@ -2740,6 +2874,7 @@ do
 
     dt.AddDivider(secSteal, { Title = "Carry behavior" })
     dt.AddToggle(secSteal, { Id = "AutoReturn", Title = "Auto Return to Base", Default = true })
+    dt.AddToggle(secSteal, { Id = "AutoChaseAndHit", Title = "Auto Chase & Hit Carriers", Description = "Chase players carrying an egg when no other target is left, or when the only Divine egg is carried. Knock the egg loose with a Bat tool, then pick it up.", Default = false })
     dt.AddSlider(secSteal, { Id = "ReturnFlyHeight", Title = "Return Flight Height", Min = 3, Max = 200, Default = 40, Step = 1, Suffix = " studs" })
     dt.AddToggle(secSteal, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
 
