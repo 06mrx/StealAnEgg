@@ -683,12 +683,16 @@ else
         ThemeManager = okTM and ThemeManager and ThemeManager() or nil
         SaveManager = okSM and SaveManager and SaveManager() or nil
 
+        local ScreenH = (workspace and workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) and workspace.CurrentCamera.ViewportSize.Y or 1080
+
         local Window = Library:CreateWindow({
             Title = "TeleSteal",
             Center = true,
             AutoShow = true,
             TabPadding = 8,
             MenuFadeTime = 0.2,
+            Size = UDim2.new(0, 360, 0, math.floor(ScreenH * 0.9)),
+            Resizable = false,
         })
 
         local Tabs = {
