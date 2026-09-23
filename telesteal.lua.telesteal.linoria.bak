@@ -663,261 +663,153 @@ task.spawn(function()
 end)
 
 a.__TELESTEAL_STOP = nil
+startLoop()
+print("[TeleSteal] aktif.")
+
 -- ============================================================
--- WINDU UI (pola mod.lua) — manual on/off, default OFF
+-- LINORIA UI (config panel live)
 -- ============================================================
-local okW2, WindUILibRaw = pcall(loadstring, game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))
-if not (okW2 and WindUILibRaw) then
-    print("[TeleSteal] gagal load WindUI:", okW2 and "nil lib" or tostring(WindUILibRaw))
+if not (type(loadstring) == "function" or type(_G.loadstring) == "function") then
+    print("[TeleSteal] executor tidak support loadstring; UI Linoria dilewati.")
 else
-    WindUILibRaw = WindUILibRaw()
+    local Repo = "https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/"
+    local okLS, Library = pcall(loadstring, game:HttpGet(Repo .. "Library.lua"))
+    if not (okLS and Library) then
+        print("[TeleSteal] gagal load LinoriaLib:", okLS and "nil lib" or tostring(Library))
+    else
+        Library = Library()
+        local okTM, ThemeManager = pcall(loadstring, game:HttpGet(Repo .. "addons/ThemeManager.lua"))
+        local okSM, SaveManager = pcall(loadstring, game:HttpGet(Repo .. "addons/SaveManager.lua"))
+        ThemeManager = okTM and ThemeManager and ThemeManager() or nil
+        SaveManager = okSM and SaveManager and SaveManager() or nil
 
-    local dt = {}
-    dt.__state = {}
-    dt.__callbacks = {}
-    dt.__elements = {}
+        local ScreenH = (workspace and workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) and workspace.CurrentCamera.ViewportSize.Y or 1080
 
-    function dt.GetState(fi) return dt.__state[fi] end
-    function dt.SetState(fi, fj, fk)
-        dt.__state[fi] = fj
-        if fk and dt.__callbacks[fi] then
-            for _, fl in ipairs(dt.__callbacks[fi]) do
-                pcall(fl, fj)
-            end
-        end
-    end
-    function dt.OnChange(fi, fj)
-        dt.__callbacks[fi] = dt.__callbacks[fi] or {}
-        table.insert(dt.__callbacks[fi], fj)
-    end
-    function dt.AddTab(cfg)
-        return Window:Tab({ Title = cfg.Title })
-    end
-    function dt.AddSection(tab, cfg)
-        return tab:Section({ Title = cfg.Title, Desc = cfg.Desc })
-    end
-    function dt.AddToggle(sec, cfg)
-        local def = (cfg.Default == true) and true or false
-        dt.__state[cfg.Id] = def
-        if cfg.Callback then dt.OnChange(cfg.Id, cfg.Callback) end
-        local el = sec:Toggle({
-            Title = cfg.Title,
-            Desc = cfg.Desc,
-            Value = def,
-            Callback = function(v) dt.SetState(cfg.Id, v, true) end,
+        local Window = Library:CreateWindow({
+            Title = "TeleSteal",
+            Center = true,
+            AutoShow = true,
+            TabPadding = 8,
+            MenuFadeTime = 0.2,
+            Size = UDim2.new(0, 360, 0, math.floor(ScreenH * 0.9)),
+            Resizable = false,
         })
-        dt.__elements[cfg.Id] = el
-        return el
-    end
-    function dt.AddSlider(sec, cfg)
-        local mn = tonumber(cfg.Min) or 0
-        local mx = tonumber(cfg.Max) or 100
-        local def = math.clamp(tonumber(cfg.Default) or mn, mn, mx)
-        dt.__state[cfg.Id] = def
-        if cfg.Callback then dt.OnChange(cfg.Id, cfg.Callback) end
-        local el = sec:Slider({
-            Title = cfg.Title,
-            Desc = cfg.Desc,
-            Value = { Min = mn, Max = mx, Default = def },
-            Suffix = cfg.Suffix,
-            Step = tonumber(cfg.Step) or 1,
-            Callback = function(v) dt.SetState(cfg.Id, v, true) end,
+
+        local Tabs = {
+            Steal = Window:AddTab("Steal"),
+            ["UI Settings"] = Window:AddTab("UI Settings"),
+        }
+
+        local GrupTarget = Tabs.Steal:AddLeftGroupbox("Target")
+        local GrupPerilaku = Tabs.Steal:AddLeftGroupbox("Perilaku")
+        local GrupTiming = Tabs.Steal:AddRightGroupbox("Timing")
+        local GrupDefense = Tabs.Steal:AddRightGroupbox("Defense")
+        local GrupKontrol = Tabs.Steal:AddRightGroupbox("Kontrol")
+
+        GrupTarget:AddDropdown("Priority", {
+            Text = "Prioritas",
+            Values = { "Rarest", "Nearest", "Furthest", "Biggest Size" },
+            Default = CFG.Priority,
+            Callback = function(v) CFG.Priority = v end,
         })
-        dt.__elements[cfg.Id] = el
-        return el
-    end
-    function dt.AddDropdown(sec, cfg)
-        local state = cfg.Default
-        if typeof(state) ~= "string" then state = cfg.Options and cfg.Options[1] or nil end
-        dt.__state[cfg.Id] = state
-        if cfg.Callback then dt.OnChange(cfg.Id, cfg.Callback) end
-        local el = sec:Dropdown({
-            Title = cfg.Title,
-            Desc = cfg.Desc,
-            Values = cfg.Options,
-            Value = state,
-            Callback = function(v) dt.SetState(cfg.Id, v, true) end,
+        GrupTarget:AddSlider("ArriveDist", {
+            Text = "Jarak Anggap Sampai",
+            Default = CFG.ArriveDist, Min = 1, Max = 15, Rounding = 1,
+            Suffix = " stud", Callback = function(v) CFG.ArriveDist = v end,
         })
-        dt.__elements[cfg.Id] = el
-        return el
-    end
-    function dt.AddButton(sec, cfg)
-        return sec:Button({
-            Title = cfg.Title,
-            Callback = function()
-                if cfg.Callback then task.spawn(cfg.Callback) end
+        GrupTarget:AddSlider("TpHop", {
+            Text = "Panjang Hop Teleport",
+            Default = CFG.TpHop, Min = 100, Max = 2000, Rounding = 1,
+            Suffix = " stud", Callback = function(v) CFG.TpHop = v end,
+        })
+        GrupTarget:AddSlider("MaxSteals", {
+            Text = "Maksimal Steal (-1 = abadi)",
+            Default = CFG.MaxSteals, Min = -1, Max = 50, Rounding = 1,
+            Callback = function(v) CFG.MaxSteals = v end,
+        })
+
+        GrupPerilaku:AddToggle("AutoReturn", {
+            Text = "Balik ke Base Setelah Grab",
+            Default = CFG.AutoReturn,
+            Callback = function(v) CFG.AutoReturn = v end,
+        })
+        GrupPerilaku:AddInput("BatTool", {
+            Text = "Nama Tool Bat",
+            Default = CFG.BatTool, Numeric = false, Finished = false,
+            Callback = function(v) CFG.BatTool = v end,
+        })
+
+        GrupTiming:AddSlider("HoldTime", {
+            Text = "Durasi Anchok di Slot",
+            Default = CFG.HoldTime, Min = 0.5, Max = 10, Rounding = 1,
+            Suffix = " dtk", Callback = function(v) CFG.HoldTime = v end,
+        })
+        GrupTiming:AddSlider("GrabDelay", {
+            Text = "Delay Inisiasi Grab",
+            Default = CFG.GrabDelay, Min = 0.1, Max = 2, Rounding = 2,
+            Suffix = " dtk", Callback = function(v) CFG.GrabDelay = v end,
+        })
+        GrupTiming:AddSlider("LoopDelay", {
+            Text = "Delay Loop",
+            Default = CFG.LoopDelay, Min = 0.05, Max = 1, Rounding = 2,
+            Suffix = " dtk", Callback = function(v) CFG.LoopDelay = v end,
+        })
+
+        GrupDefense:AddToggle("Defense", {
+            Text = "Auto Swing Bat (anti-ganggu)",
+            Default = CFG.Defense,
+            Callback = function(v) CFG.Defense = v end,
+        })
+        GrupDefense:AddSlider("DefenseRadius", {
+            Text = "Jarak Deteksi Lawan",
+            Default = CFG.DefenseRadius, Min = 5, Max = 40, Rounding = 1,
+            Suffix = " stud", Callback = function(v) CFG.DefenseRadius = v end,
+        })
+
+        GrupKontrol:AddToggle("Enabled", {
+            Text = "Aktif (start/pause loop)",
+            Default = (run and a.__TELESTEAL_RUN ~= false and run ~= nil) or false,
+            Callback = function(v)
+                if v then
+                    startLoop()
+                    print("[TeleSteal] lanjut (loop distart ulang dari UI).")
+                else
+                    pauseLoop()
+                    print("[TeleSteal] dijeda lewat UI.")
+                end
             end,
         })
-    end
-    function dt.AddParagraph(sec, cfg)
-        return sec:Paragraph({ Title = cfg.Title, Desc = cfg.Desc })
-    end
-    function dt.AddDivider(sec)
-        return sec:Divider()
-    end
-    function dt.AddInput(sec, cfg)
-        local def = tostring(cfg.Default or "")
-        dt.__state[cfg.Id] = def
-        if cfg.Callback then dt.OnChange(cfg.Id, cfg.Callback) end
-        local el = sec:Input({
-            Title = cfg.Title,
-            Desc = cfg.Desc,
-            Placeholder = cfg.Placeholder,
-            Value = def,
-            Callback = function(v) dt.SetState(cfg.Id, v, true) end,
-        })
-        dt.__elements[cfg.Id] = el
-        return el
-    end
-
-    local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
-    local winW, winH = 560, 0
-    if vp then
-        winH = math.floor(vp.Y * 0.90)
-        winW = math.min(ware_ui_winW or 560, math.floor(vp.X * 0.30))
-    else
-        winH = 640
-    end
-
-    local Window = WindUILibRaw:CreateWindow({
-        Title = "TeleSteal",
-        Author = "mrx",
-        Folder = "WindUI/TeleSteal",
-        ToggleKey = Enum.KeyCode.LeftControl,
-        Theme = "Violet",
-        Size = UDim2.fromOffset(winW, winH),
-        MinSize = Vector2.new(520, 360),
-        MaxSize = Vector2.new(900, 900),
-        Resizable = true,
-    })
-
-    local Tabs = { Steal = dt.AddTab({ Title = "Steal" }) }
-
-    -- ============ KONTROL (default OFF, manual) ============
-    local secKontrol = dt.AddSection(Tabs.Steal, { Title = "Kontrol", Desc = "Manual on/off" })
-    dt.AddToggle(secKontrol, {
-        Id = "Enabled",
-        Title = "Enabled",
-        Desc = "Default OFF — start loop manual via toggle ini (jangan auto-on)",
-        Default = false,
-        Callback = function(v)
-            if v then
-                startLoop()
-                print("[TeleSteal] loop distart dari UI (Enabled ON).")
-            else
+        GrupKontrol:AddButton({
+            Text = "Stop Total (hard stop)",
+            DoubleClick = true,
+            Func = function()
+                run = false
                 pauseLoop()
-                print("[TeleSteal] loop dijeda (Enabled OFF).")
-            end
-        end,
-    })
-    dt.AddButton(secKontrol, {
-        Title = "Stop Total (hard stop)",
-        Callback = function()
-            pauseLoop()
-            a.__TELESTEAL_STOP = true
-            print("[TeleSteal] hard stop diminta via UI; teardown thread jalan.")
-        end,
-    })
-    dt.AddParagraph(secKontrol, {
-        Title = "Catatan",
-        Desc = "Rerun skrip = teardown total semua koneksi.",
-    })
+                if a.__TELESTEAL_STOP ~= nil or a.__TELESTEAL_STOP == nil then
+                    a.__TELESTEAL_STOP = true
+                end
+                print("[TeleSteal] hard stop diminta lewat UI (teardown jalan).")
+            end,
+        })
+        GrupKontrol:AddLabel("Rerun skrip = hard stop total (teardown semua koneksi).")
 
-    -- ============ TARGET ============
-    local secTarget = dt.AddSection(Tabs.Steal, { Title = "Target", Desc = "Pilih telur" })
-    dt.AddSlider(secTarget, {
-        Id = "ArriveDist",
-        Title = "ArriveDist",
-        Desc = "Jarak anggap tiba",
-        Min = 1, Max = 15, Default = CFG.ArriveDist, Step = 1, Suffix = " stud",
-        Callback = function(v) CFG.ArriveDist = v end,
-    })
-    dt.AddSlider(secTarget, {
-        Id = "TpHop",
-        Title = "TpHop",
-        Desc = "Panjang hop teleport",
-        Min = 100, Max = 2000, Default = CFG.TpHop, Step = 50, Suffix = " stud",
-        Callback = function(v) CFG.TpHop = v end,
-    })
-    dt.AddDropdown(secTarget, {
-        Id = "Priority",
-        Title = "Priority",
-        Desc = "Urutan pilih telur",
-        Options = { "Rarest", "Nearest", "Furthest", "Biggest Size" },
-        Default = CFG.Priority,
-        Callback = function(v) CFG.Priority = v end,
-    })
-    dt.AddSlider(secTarget, {
-        Id = "MaxSteals",
-        Title = "MaxSteals",
-        Desc = "Maksimal steal (-1 = tanpa batas)",
-        Min = -1, Max = 50, Default = CFG.MaxSteals, Step = 1,
-        Callback = function(v) CFG.MaxSteals = v end,
-    })
+        Tabs["UI Settings"]:AddDivider()
+        local TmBox = Tabs["UI Settings"]:AddRightGroupbox("Tema")
+        local SvBox = Tabs["UI Settings"]:AddRightGroupbox("Simpan")
 
-    -- ============ PERILAKU ============
-    local secPerilaku = dt.AddSection(Tabs.Steal, { Title = "Perilaku", Desc = "Setelah grab" })
-    dt.AddToggle(secPerilaku, {
-        Id = "AutoReturn",
-        Title = "AutoReturn",
-        Desc = "Teleport balik ke base setelah grab",
-        Default = CFG.AutoReturn,
-        Callback = function(v) CFG.AutoReturn = v end,
-    })
-    dt.AddInput(secPerilaku, {
-        Id = "BatTool",
-        Title = "BatTool",
-        Desc = "Nama tool bat",
-        Default = CFG.BatTool,
-        Callback = function(v) CFG.BatTool = v end,
-    })
+        if ThemeManager then
+            ThemeManager:SetLibrary(Library)
+            TmBox:AddLabel("Warna / tema via ThemeManager")
+            ThemeManager:ApplyToTab(Tabs["UI Settings"])
+        end
+        if SaveManager then
+            SaveManager:SetLibrary(Library)
+            SaveManager:IgnoreThemeSettings()
+            SaveManager:BuildConfigSection(Tabs["UI Settings"])
+        end
 
-    -- ============ TIMING ============
-    local secTiming = dt.AddSection(Tabs.Steal, { Title = "Timing", Desc = "Delay & hold" })
-    dt.AddSlider(secTiming, {
-        Id = "HoldTime",
-        Title = "HoldTime",
-        Desc = "Durasi anchok di slot",
-        Min = 0.5, Max = 10, Default = CFG.HoldTime, Step = 0.5, Suffix = " dtk",
-        Callback = function(v) CFG.HoldTime = v end,
-    })
-    dt.AddSlider(secTiming, {
-        Id = "GrabDelay",
-        Title = "GrabDelay",
-        Desc = "Delay inisiasi grab",
-        Min = 0.1, Max = 2, Default = CFG.GrabDelay, Step = 0.1, Suffix = " dtk",
-        Callback = function(v) CFG.GrabDelay = v end,
-    })
-    dt.AddSlider(secTiming, {
-        Id = "LoopDelay",
-        Title = "LoopDelay",
-        Desc = "Delay loop utama",
-        Min = 0.05, Max = 1, Default = CFG.LoopDelay, Step = 0.05, Suffix = " dtk",
-        Callback = function(v) CFG.LoopDelay = v end,
-    })
+        if ThemeManager then Library:OnUnload(function() ThemeManager:Unload() if SaveManager then SaveManager:Unload() end end) end
 
-    -- ============ DEFENSE ============
-    local secDefense = dt.AddSection(Tabs.Steal, { Title = "Defense", Desc = "Anti-ganggu" })
-    dt.AddToggle(secDefense, {
-        Id = "Defense",
-        Title = "Defense",
-        Desc = "Auto swing bat bila ada lawan dekat",
-        Default = CFG.Defense,
-        Callback = function(v) CFG.Defense = v end,
-    })
-    dt.AddSlider(secDefense, {
-        Id = "DefenseRadius",
-        Title = "DefenseRadius",
-        Desc = "Jarak deteksi lawan",
-        Min = 5, Max = 40, Default = CFG.DefenseRadius, Step = 1, Suffix = " stud",
-        Callback = function(v) CFG.DefenseRadius = v end,
-    })
-
-    print("[TeleSteal] UI WindUI siap. Enabled DEFAULT OFF — nyalakan manual lewat toggle.")
+        print("[TeleSteal] UI Linoria siap.")
+    end
 end
-
--- ============================================================
--- AKHIR SKRIP — teardown langsung thread (guard di atas).
--- NOTE: TIDAK ada auto-start di sini. Enabled = manual.
--- ============================================================
-print("[TeleSteal] selesai load. Loop TIDAK distart otomatis — aktifkan via UI.")
