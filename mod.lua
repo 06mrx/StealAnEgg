@@ -238,6 +238,10 @@ local ap = {
 local aq    = r.findRemote("RF/EggWorld/AskFieldEggCarry") or r.findRemoteContains("AskFieldEggCarry")
 local ar = r.findRemote("RF/EggWorld/AskFieldEggSnapshot") or r.findRemoteContains("AskFieldEggSnapshot")
 local as    = r.findRemote("RF/EggWorld/AskPlaceEgg") or r.findRemoteContains("AskPlaceEgg")
+local warpStrikeRemote = r.remoteFrom(ai, "GuardPatrol", "ForestStrike")
+    or r.findRemote("RE/GuardPatrol/ForestStrike") or r.findRemoteContains("ForestStrike")
+local warpTollRemote = r.remoteFrom(ai, "GuardPatrol", "SpeedTollOffer")
+    or r.findRemote("RE/GuardPatrol/SpeedTollOffer") or r.findRemoteContains("SpeedTollOffer")
 
 if not aj.RequestCarryAreaEgg and aq then
     aj.RequestCarryAreaEgg = function(at, au)
@@ -1011,7 +1015,7 @@ function r.isStealCandidate(dq, dr)
     if dq.State ~= "Slot" and dq.State ~= "Dropped" then return false end
     if dr then return true end
     if r.isBigEgg(dq) and r.selectionAllows("StealZones", dq.AreaId) then return true end
-    if not r.isOn("AutoStealSelected") then return false end
+    if not r.isOn("AutoStealSelected") and not r.isOn("AutoStealWarp") then return false end
     return r.matchesEggFilters(dq, "StealZones", "StealRarities", "StealMutations")
 end
 function r.pickStealTarget()
@@ -1198,7 +1202,7 @@ function r.runChaseAndHit(dq, targetRoot)
     end
     return true
 end
-function r.stealingEnabled() return r.isOn("AutoStealSelected") or r.isOn("AutoStealAll") or r.isOn("StealBigEggs") end
+function r.stealingEnabled() return r.isOn("AutoStealSelected") or r.isOn("AutoStealAll") or r.isOn("StealBigEggs") or r.isOn("AutoStealWarp") end
 function r.eggInventoryCount()
     local dq = r.getSave()
     local dr = dq and dq.EggInventory
@@ -1438,6 +1442,299 @@ function r.stealEgg(dq)
     return true
 end
 
+-- ============================================================
+-- WARP MODE (Snipe via Guard-Strike Bounce + PivotTo)
+-- Mirrors DiceHub snipeLoop: find a lake egg to trigger the
+-- guard bounce, then teleport to the target egg's position.
+-- ============================================================
+local warpBusy = false
+
+function r.findWarpLakeEgg()
+    local root = r.getRoot()
+    if not root then return nil end
+    local cands = {}
+    for _, rec in ipairs(r.getAreaEggs()) do
+        local playable = rec.State == "Slot" or rec.State == "Dropped"
+        local areaLow = string.lower(tostring(rec.AreaId or ""))
+        local uidLow = string.lower(tostring(rec.Uid or ""))
+        local isLake = rec.AreaId == "Lake"
+            or areaLow:find("lake", 1, true) ~= nil
+            or uidLow:find("lake", 1, true) ~= nil
+        local cf = rec.BoundsCFrame or rec.BottomCFrame
+        if playable and isLake and cf then
+            local pos = cf.Position
+            table.insert(cands, {
+                Uid = rec.Uid, CFrame = cf, Position = pos,
+                Distance = (root.Position - pos).Magnitude,
+            })
+        end
+    end
+    if #cands == 0 then
+        for _, rec in ipairs(r.getAreaEggs()) do
+            local playable = rec.State == "Slot" or rec.State == "Dropped"
+            local cf = rec.BoundsCFrame or rec.BottomCFrame
+            local pos = cf and cf.Position
+            if playable and pos and pos.X >= 545 and pos.X < 850 then
+                table.insert(cands, {
+                    Uid = rec.Uid, CFrame = cf, Position = pos,
+                    Distance = (root.Position - pos).Magnitude,
+                    Area = rec.AreaId or "Field",
+                })
+            end
+        end
+    end
+    if #cands == 0 then return nil end
+    table.sort(cands, function(a, b) return a.Distance < b.Distance end)
+    local best = cands[1]
+    if best and dg then best.Model = dg:FindFirstChild(best.Uid) end
+    return best
+end
+
+function r.warpSpawnFloor(pos, ttl)
+    if not pos then return nil end
+    local floor = Instance.new("Part")
+    floor.Name = "ApexWarpFloor"
+    floor.Size = Vector3.new(28, 1.5, 28)
+    floor.Position = pos - Vector3.new(0, 3.2, 0)
+    floor.Anchored = true
+    floor.Transparency = 1
+    floor.CanCollide = true
+    floor.Parent = h
+    task.delay(ttl or 12, function()
+        if floor and floor.Parent then pcall(function() floor:Destroy() end) end
+    end)
+    return floor
+end
+
+function r.triggerGuardStrike(uid)
+    if not warpStrikeRemote or not uid then return false end
+    local root = r.getRoot()
+    local guardCf = root and root.CFrame * CFrame.new(0, 0, -3) or CFrame.new()
+    if warpStrikeRemote:IsA("RemoteFunction") then
+        pcall(function() warpStrikeRemote:InvokeServer({ EggUid = uid, GuardCFrame = guardCf }) end)
+    else
+        pcall(function() warpStrikeRemote:FireServer({ EggUid = uid, GuardCFrame = guardCf }) end)
+    end
+    return true
+end
+
+function r.warpCarryingEgg(uid)
+    if not bu then return false end
+    if typeof(returnEggUid) == "string" and returnEggUid ~= "" then return returnEggUid == uid end
+    local rec = r.findAreaEggRecord(uid)
+    return rec ~= nil and rec.State == "Carried"
+end
+
+local function warpZeroVelocities(char)
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.AssemblyLinearVelocity = Vector3.zero
+            part.AssemblyAngularVelocity = Vector3.zero
+        end
+    end
+end
+
+function r.warpStealEgg(dq)
+    if warpBusy then return false end
+    warpBusy = true
+    local okCb, res = pcall(function()
+        if not dq then return false end
+        local snipeUid = dq.Name
+        local snipeRec = r.findAreaEggRecord(snipeUid)
+        local snipeCFrame = snipeRec and (snipeRec.BoundsCFrame or snipeRec.BottomCFrame)
+        if not snipeCFrame then
+            local model = r.findEggPart(snipeUid)
+            snipeCFrame = model and model:GetPivot() or CFrame.new(r.getSlotEggPosition(dq))
+        end
+        local snipePos = snipeCFrame.Position
+        local hum = r.getHumanoid()
+        local root = r.getRoot()
+        if not root or not hum then return false end
+
+        hum:UnequipTools()
+        if not r.prepareStealHumanoid() then return false end
+
+        -- 1) Need a held egg to trigger the guard strike: use current carry
+        --    or fetch the nearest lake egg (DiceHub uses it as the striker).
+        local heldOk = nil
+        if bu then
+            heldOk = returnEggUid
+        else
+            local lake = r.findWarpLakeEgg()
+            if not lake then return false end
+            local lakePos = lake.Position
+            pcall(function() m:RequestStreamAroundAsync(lakePos) end)
+            r.warpSpawnFloor(lakePos, 8)
+            root = r.getRoot()
+            if (root.Position - lakePos).Magnitude > 60 then
+                if not r.bypassMoveTo(lakePos, function() return r.isOn("AutoStealWarp") end, r.stealSpeed(), 3) then
+                    return false
+                end
+            else
+                root = r.getRoot()
+                r.placeRoot(root, lake.CFrame * CFrame.new(0, 0.4, 0))
+            end
+            root = r.getRoot()
+            root.Anchored = true
+            task.wait(0.06)
+            root.Anchored = false
+            local grabDeadline = os.clock() + 3
+            while s and r.isOn("AutoStealWarp") and os.clock() < grabDeadline and not r.warpCarryingEgg(lake.Uid) do
+                root = r.getRoot()
+                if root then
+                    local gy = r.groundedY(lakePos.X, lakePos.Z, lakePos.Y)
+                    r.placeRoot(root, CFrame.new(lakePos.X, gy, lakePos.Z))
+                end
+                r.tryCarryEgg({ Name = lake.Uid })
+                task.wait(0.05)
+            end
+            if not r.warpCarryingEgg(lake.Uid) then
+                r.stealCleanup()
+                return false
+            end
+            heldOk = lake.Uid
+        end
+
+        -- 2) Pre-stream the snipe position + safety floor
+        pcall(function() m:RequestStreamAroundAsync(snipePos) end)
+        r.warpSpawnFloor(snipePos, 12)
+
+        -- 3) Wait for the physical bounce (guard strike knockback)
+        root = r.getRoot()
+        root.Anchored = false
+        hum:ChangeState(Enum.HumanoidStateType.Running)
+        local savedWalk = (hum.WalkSpeed > 0) and hum.WalkSpeed or 16
+        hum.WalkSpeed = 0
+        hum:Move(Vector3.zero, false)
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+        task.wait(0.04)
+        local bounceOrigin = root.Position
+        local bounceOriginY = bounceOrigin.Y
+        local tollFired = false
+        local tollConn = nil
+        if warpTollRemote and warpTollRemote:IsA("RemoteEvent") then
+            tollConn = warpTollRemote.OnClientEvent:Connect(function()
+                tollFired = true
+                if tollConn then tollConn:Disconnect() end
+            end)
+        end
+        r.triggerGuardStrike(heldOk)
+        local strikeClock = os.clock()
+        local strikeDeadline = os.clock() + 2.5
+        local strikeSent = false
+        local bounceDetected = false
+        while s and r.isOn("AutoStealWarp") and os.clock() < strikeDeadline do
+            local bounceDt = os.clock() - strikeClock
+            local velNow = root.AssemblyLinearVelocity
+            local posNow = root.Position
+            local dyNow = posNow.Y - bounceOriginY
+            local distMoved = (posNow - bounceOrigin).Magnitude
+            if bounceDt >= 0.08 then
+                local cond = tollFired
+                    or velNow.Y >= 10
+                    or (dyNow >= 1.5 and velNow.Magnitude >= 16)
+                    or distMoved >= 2
+                    or velNow.Magnitude >= 20
+                if cond then bounceDetected = true break end
+            end
+            if bounceDt >= 0.5 and not strikeSent then
+                strikeSent = true
+                r.triggerGuardStrike(heldOk)
+            end
+            c.Heartbeat:Wait()
+        end
+        if tollConn then pcall(function() tollConn:Disconnect() end) end
+        hum.WalkSpeed = savedWalk
+        if not bounceDetected then
+            if bu then pcall(r.runAutoDropEgg) end
+            r.stealCleanup()
+            return false
+        end
+
+        -- 4) Warp to the snipe position
+        task.wait(0.05)
+        r.warpSpawnFloor(snipePos, 8)
+        m.Character:PivotTo(snipeCFrame * CFrame.new(0, 0.4, 0))
+        root = r.getRoot()
+        root.Anchored = true
+        warpZeroVelocities(m.Character)
+
+        -- 5) Release the held egg tool and swap to the target egg
+        local backpack = m:FindFirstChild("Backpack")
+        if m.Character then
+            for _, tool in ipairs(m.Character:GetChildren()) do
+                if tool:IsA("Tool") then
+                    pcall(function() tool.Parent = backpack or h end)
+                end
+            end
+        end
+        task.wait(0.06)
+        root = r.getRoot()
+        root.Anchored = false
+        hum:ChangeState(Enum.HumanoidStateType.Running)
+
+        local grabDeadline = os.clock() + 5
+        while s and r.isOn("AutoStealWarp") and os.clock() < grabDeadline and not r.warpCarryingEgg(snipeUid) do
+            root = r.getRoot()
+            if root then
+                local gy = r.groundedY(snipePos.X, snipePos.Z, snipePos.Y)
+                r.placeRoot(root, CFrame.new(snipePos.X, gy, snipePos.Z))
+            end
+            r.tryCarryEgg(dq)
+            task.wait(0.05)
+        end
+        if not r.warpCarryingEgg(snipeUid) then
+            if bu then pcall(r.runAutoDropEgg) end
+            r.stealCleanup()
+            return false
+        end
+
+        -- 6) Stand tight (anchored) a moment so the carry registers
+        do
+            local heldRoot = r.getRoot()
+            if heldRoot then
+                pcall(function() heldRoot.Anchored = true end)
+                heldRoot.AssemblyLinearVelocity = Vector3.zero
+                heldRoot.AssemblyAngularVelocity = Vector3.zero
+                c.Heartbeat:Wait()
+            end
+        end
+        r.holdAtPosition(bp, function() return r.isOn("AutoStealWarp") and bu end, true)
+        if not r.isOn("AutoStealWarp") then return false end
+        if not r.warpCarryingEgg(snipeUid) then
+            r.tryCarryEgg(dq)
+            task.wait(0.1)
+        end
+
+        -- 7) Return home with the stolen egg
+        local q0 = os.clock()
+        while s and r.isOn("AutoStealWarp") and os.clock() - q0 < 180 do
+            if bu then
+                if r.returnToBaseBypass(function() return r.isOn("AutoStealWarp") and bu end) then
+                    local q1 = os.clock() + 3
+                    while s and r.isOn("AutoStealWarp") and bu and os.clock() < q1 do
+                        task.wait(0.1)
+                    end
+                    return true
+                end
+            end
+            if not bu and r.isOn("AutoStealWarp") then
+                local dq2 = r.findEggPart(snipeUid)
+                if not dq2 then dq2 = r.pickStealTarget() end
+                if not dq2 then break end
+                if not r.stealEggPickup(dq2) then break end
+                snipeUid = dq2.Name
+            end
+            task.wait(0.2)
+        end
+        return true
+    end)
+    warpBusy = false
+    return okCb and res == true
+end
+
 function r.runAutoSteal()
     if bu or r.eggInventoryFull() then return false end
     pcall(function()
@@ -1446,7 +1743,10 @@ function r.runAutoSteal()
     end)
     task.wait(0.1)
     local dq = r.pickStealTarget()
-    if dq then return r.stealEgg(dq) end
+    if dq then
+        if r.isOn("AutoStealWarp") then return r.warpStealEgg(dq) end
+        return r.stealEgg(dq)
+    end
     if r.isOn("AutoChaseAndHit") then
         local dr = r.pickChaseHitTarget()
         if dr then
@@ -2553,6 +2853,8 @@ function r.isOn(fi)
             and (fk == "Filtered Eggs" or fk == "Filtered + Oversized")
     elseif fi == "AutoStealAll" then
         return dt.GetState("StealEggsEnabled") == true and dt.GetState("StealMode") == "All Eggs"
+    elseif fi == "AutoStealWarp" then
+        return dt.GetState("StealEggsEnabled") == true and dt.GetState("StealMode") == "Warp Mode"
     elseif fi == "StealBigEggs" then
         local fk = dt.GetState("StealMode")
         return dt.GetState("StealEggsEnabled") == true
@@ -2896,7 +3198,7 @@ do
         if not bi then r.stealCleanup() end
     end })
     dt.AddDropdown(secSteal, { Id = "StealMode", Title = "What to Steal", Description = "Pick ONE target type",
-        Options = { "All Eggs", "Filtered Eggs", "Oversized Eggs", "Filtered + Oversized" }, Default = "Filtered Eggs" })
+        Options = { "All Eggs", "Filtered Eggs", "Oversized Eggs", "Filtered + Oversized", "Warp Mode" }, Default = "Filtered Eggs" })
     dt.AddSlider(secSteal, { Id = "StealMoveSpeed", Title = "Steal Speed", Min = 16, Max = 2000, Default = bj, Step = 1, Suffix = " studs/s" })
     dt.AddSlider(secSteal, { Id = "BypassReturnSpeed", Title = "Return Speed", Min = 16, Max = 2000, Default = bk, Step = 1, Suffix = " studs/s" })
 

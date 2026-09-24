@@ -1,0 +1,23 @@
+{
+  "v0_134": "guardAreaObjects",
+  "v800_6": "guardKeyL",
+  "v853_7": "eggIdentifyKey",
+  "v0_142": "lightingFX",
+  "v0_146": "virtualInput",
+  "v0_154": "langKey",
+  "v0_155": "langTables",
+  "v0_156": "uiRefs",
+  "v0_157": "tabFarm",
+  "v0_158": "tabEggs",
+  "v0_159": "tabSettings",
+  "v0_160": "guiStateUI",
+  "v0_164": "themeColors",
+  "v0_165": "setToggleColor",
+  "v0_166": "tintToggles",
+  "v0_167": "applyLang",
+  "v0_168": "uiBuilder",
+  "v0_170": "restoreBar",
+  "v0_171": "eggSelectFrame",
+  "v1289_7": "windConfig",
+  "v1289_17": "langTbl"
+}

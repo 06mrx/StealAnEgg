@@ -1,0 +1,7 @@
+PASS SEMANTIK PENUH: DiceHub.readable.lua -> DiceHub.translated.lua
+Token di-rename: 1409 aturan (100% dari 1409 token unik)
+Occurrence direname: SELURUH token vN_M (0 sisa di output)
+Verifikasi: valid Lua 5.1 | idempoten | tanpa sisa vN_M asal | tanpa bentrok identifier
+Cakupan inti: auto-steal, teleport/snipe(warp), guard-strike, treadmill, egg-select, trail-shop, config, UI loader+sniper+fallback, perf-mode, anti-afk, icon/base64, bahasa/theme.
+---
+distribusi sisa: N/A - rename 100% tuntas di rules-(1..18)+rules.json (1409 aturan)

@@ -1,0 +1,21 @@
+{
+  "v636_1": "fundLabel",
+  "v649_1": "moneyRaw",
+  "v649_2": "moneyClean",
+  "v649_3": "moneyMatch",
+  "v649_4": "moneyNum2",
+  "v784_1": "cFrameBox",
+  "v784_2": "sizeBox",
+  "v787_1": "modelObj",
+  "v787_2": "modelBounds",
+  "v309_1": "treadDesc",
+  "v757_1": "eggSlotIdx2",
+  "v757_2": "eggSlotRec2",
+  "v757_3": "eggSlotPlayable2",
+  "v757_4": "eggSlotCF2",
+  "v167_1": "eggCtxIdx",
+  "v167_2": "eggCtxRec",
+  "v1221_1": "cfgTabIdx",
+  "v1221_2": "cfgTabCfg",
+  "v1221_4": "cfgTabTitle"
+}
