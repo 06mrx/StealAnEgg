@@ -1268,16 +1268,17 @@ function r.pickChaseHitTarget()
     return dr
 end
 function r.findBatTool()
-    local TARGET_TOOL_NAME = "Bat [X1]"
     local char = m.Character
     if char then
-        local t = char:FindFirstChild(TARGET_TOOL_NAME)
-        if t and t:IsA("Tool") then return t, true end
+        for _, t in ipairs(char:GetChildren()) do
+            if t:IsA("Tool") and t.Name:lower():find("bat") then return t, true end
+        end
     end
     local bp = m:FindFirstChildOfClass("Backpack")
     if bp then
-        local t = bp:FindFirstChild(TARGET_TOOL_NAME)
-        if t and t:IsA("Tool") then return t, false end
+        for _, t in ipairs(bp:GetChildren()) do
+            if t:IsA("Tool") and t.Name:lower():find("bat") then return t, false end
+        end
     end
     return nil, false
 end
@@ -1316,7 +1317,7 @@ function r.runChaseAndHit(dq, targetRoot)
         end
         local dt = r.getRoot()
         local du = dt and targetRoot and (dt.Position - targetRoot.Position).Magnitude or 999
-        if du > 8 then
+        if du > 50 then
             local bn = r.getArenaBounds()
             local dv = du > 250 and nil or (bn and Vector3.new(
                 math.clamp(targetRoot.Position.X, bn.minX + 25, bn.maxX - 25),
@@ -1897,14 +1898,15 @@ end
 
 function r.runAutoSteal()
     if bu or r.eggInventoryFull() then return false end
-    pcall(function()
-        local dq = game:GetService("ReplicatedStorage").Packages.Networking["RF/Treadmill/AskDoff"]
-        if dq then dq:InvokeServer() end
-    end)
+    
     task.wait(0.1)
     local dq = r.pickStealTarget()
     if dq then
         r.statueSpawn()
+        pcall(function()
+            local dq = game:GetService("ReplicatedStorage").Packages.Networking["RF/Treadmill/AskDoff"]
+            if dq then dq:InvokeServer() end
+        end)
         local ds, dd
         if r.isOn("AutoStealWarp") then
             ds, dd = pcall(r.warpStealEgg, dq)
@@ -2187,7 +2189,7 @@ function r.getSellableEggUids()
 end
 function r.runAutoSellEggs()
     local uids = r.getSellableEggUids()
-    notify("AutoSellEggs: " .. tostring(#uids) .. " eggs to sell.")
+    r.notify("Auto Sell", tostring(#uids) .. " eggs to sell.", "Success", 3)
     if #uids == 0 then return end
     r.sellSelectionBatch({}, uids)
     task.wait(0.1)
