@@ -1146,7 +1146,7 @@ function r.isStealCandidate(dq, dr)
     if dq.State ~= "Slot" and dq.State ~= "Dropped" then return false end
     if dr then return true end
     if r.isBigEgg(dq) and r.selectionAllows("StealZones", dq.AreaId) then return true end
-    if not r.isOn("AutoStealSelected") and not r.isOn("AutoStealWarp") then return false end
+    if not r.isOn("AutoStealSelected") and not r.isOn("AutoStealWarp") and not r.isOn("AutoStealDirect") then return false end
     return r.matchesEggFilters(dq, "StealZones", "StealRarities", "StealMutations")
 end
 function r.pickStealTarget()
@@ -1333,7 +1333,7 @@ function r.runChaseAndHit(dq, targetRoot)
     end
     return true
 end
-function r.stealingEnabled() return r.isOn("AutoStealSelected") or r.isOn("AutoStealAll") or r.isOn("StealBigEggs") or r.isOn("AutoStealWarp") end
+function r.stealingEnabled() return r.isOn("AutoStealSelected") or r.isOn("AutoStealAll") or r.isOn("StealBigEggs") or r.isOn("AutoStealWarp") or r.isOn("AutoStealDirect") end
 function r.eggInventoryCount()
     local dq = r.getSave()
     local dr = dq and dq.EggInventory
@@ -1894,6 +1894,123 @@ function r.warpStealEgg(dq)
     return okCb and res == true
 end
 
+-- ============================================================
+-- DIRECT WARP MODE (Snipe without the guard bounce)
+-- Skips the lake egg / guard strike entirely: from base, we
+-- prepare the anti-desync humanoid, then PivotTo straight to
+-- the target egg. The anchor-lock keeps the server from
+-- pulling us back while we re-grab + return.
+-- ============================================================
+function r.directWarpStealEgg(dq)
+    if warpBusy then return false end
+    warpBusy = true
+    local function notify(msg)
+        task.spawn(function()
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "Direct Warp",
+                    Text = tostring(msg),
+                    Duration = 3
+                })
+            end)
+        end)
+    end
+    local okCb, res = pcall(function()
+        if not dq then return false end
+        local snipeUid = dq.Name
+        local snipeRec = r.findAreaEggRecord(snipeUid)
+        local snipeCFrame = snipeRec and (snipeRec.BoundsCFrame or snipeRec.BottomCFrame)
+        if not snipeCFrame then
+            local model = r.findEggPart(snipeUid)
+            snipeCFrame = model and model:GetPivot() or CFrame.new(r.getSlotEggPosition(dq))
+        end
+        local snipePos = snipeCFrame.Position
+        local hum = r.getHumanoid()
+        local root = r.getRoot()
+        if not root or not hum then return false end
+
+        hum:UnequipTools()
+        hum = r.prepareStealHumanoid()
+        if not hum then return false end
+        r.disableRagdoll(m.Character)
+        root = r.getRoot()
+        if not root then return false end
+
+        -- pre-flight: abort if target egg was already taken
+        r.swapStealHumanoid()
+        notify("[1/4] Pre-Flight Desync...")
+        if not r.warpTargetAvailable(snipeUid) then
+            notify("[1/4] Target taken! Aborting.")
+            return false
+        end
+
+        -- 1) Pre-stream the snipe position + safety floor
+        notify("[2/4] Pre-streaming Target...")
+        pcall(function() m:RequestStreamAroundAsync(snipePos) end)
+        r.warpSpawnFloor(snipePos, 12)
+
+        -- 2) Direct warp: no lake egg, no guard strike, no bounce.
+        notify("[3/4] Direct Warping to Target Egg...")
+        root = r.getRoot()
+        root.Anchored = false
+        hum:ChangeState(Enum.HumanoidStateType.Running)
+        task.wait(0.04)
+        r.warpSpawnFloor(snipePos, 8)
+        m.Character:PivotTo(snipeCFrame * CFrame.new(0, 0.4, 0))
+        root = r.getRoot()
+        root.Anchored = true
+        warpZeroVelocities(m.Character)
+
+        -- 3) At target: keep the desync lock (anchored + zero velocity),
+        --    drop any carried egg WHILE locked, hold it briefly, then
+        --    release into a stealEggPickup-style grab.
+        notify("[4/4] Picking up Target Egg...")
+        if bu then pcall(r.runAutoDropEgg) end
+        task.wait(0.06)
+        root = r.getRoot()
+        if root then
+            root.Anchored = true
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+        end
+        task.wait(0.06)
+        root = r.getRoot()
+        if root then pcall(function() root.Anchored = false end) end
+        hum:ChangeState(Enum.HumanoidStateType.Running)
+
+        if not r.waitFor(2, 0.05, function() return not bu end) then
+            pcall(r.runAutoDropEgg)
+            task.wait(0.3)
+        end
+
+        -- stealEggPickup handles everything: grab 1 -> stand tight (3s
+        -- anchored, no ragdoll) -> grab 2, exactly like normal stealEgg.
+        local pickupOk = r.stealEggPickup(dq)
+        if not pickupOk then notify("[4/4] Pickup failed, will retry.") end
+
+        -- 4) Return home immediately (no extra wait, like stealEgg)
+        notify("[4/4] Target secured! Returning home...")
+        local q0 = os.clock()
+        while s and r.isOn("AutoStealDirect") and os.clock() - q0 < 180 do
+            if bu and r.returnToBaseBypass(function() return r.isOn("AutoStealDirect") and bu end) then
+                notify("[4/4] Delivered!")
+                return true
+            end
+            if not bu and r.isOn("AutoStealDirect") then
+                local dq2 = r.findEggPart(snipeUid)
+                if not dq2 then dq2 = r.pickStealTarget() end
+                if not dq2 then break end
+                if not r.stealEggPickup(dq2) then break end
+                snipeUid = dq2.Name
+            end
+            task.wait(0.2)
+        end
+        return true
+    end)
+    warpBusy = false
+    return okCb and res == true
+end
+
 function r.runAutoSteal()
     if bu or r.eggInventoryFull() then return false end
     pcall(function()
@@ -1907,6 +2024,8 @@ function r.runAutoSteal()
         local ds, dd
         if r.isOn("AutoStealWarp") then
             ds, dd = pcall(r.warpStealEgg, dq)
+        elseif r.isOn("AutoStealDirect") then
+            ds, dd = pcall(r.directWarpStealEgg, dq)
         else
             ds, dd = pcall(r.stealEgg, dq)
         end
@@ -3029,6 +3148,8 @@ function r.isOn(fi)
         return dt.GetState("StealEggsEnabled") == true and dt.GetState("StealMode") == "All Eggs"
     elseif fi == "AutoStealWarp" then
         return dt.GetState("StealEggsEnabled") == true and dt.GetState("StealMode") == "Warp Mode"
+    elseif fi == "AutoStealDirect" then
+        return dt.GetState("StealEggsEnabled") == true and dt.GetState("StealMode") == "Direct Warp"
     elseif fi == "StealBigEggs" then
         local fk = dt.GetState("StealMode")
         return dt.GetState("StealEggsEnabled") == true
@@ -3372,7 +3493,7 @@ do
         if not bi then r.stealCleanup() end
     end })
     dt.AddDropdown(secSteal, { Id = "StealMode", Title = "What to Steal", Description = "Pick ONE target type",
-        Options = { "All Eggs", "Filtered Eggs", "Oversized Eggs", "Filtered + Oversized", "Warp Mode" }, Default = "Filtered Eggs" })
+        Options = { "All Eggs", "Filtered Eggs", "Oversized Eggs", "Filtered + Oversized", "Warp Mode", "Direct Warp" }, Default = "Filtered Eggs" })
     dt.AddSlider(secSteal, { Id = "StealMoveSpeed", Title = "Steal Speed", Min = 16, Max = 2000, Default = bj, Step = 1, Suffix = " studs/s" })
     dt.AddSlider(secSteal, { Id = "BypassReturnSpeed", Title = "Return Speed", Min = 16, Max = 2000, Default = bk, Step = 1, Suffix = " studs/s" })
 
