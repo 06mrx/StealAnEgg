@@ -1661,32 +1661,25 @@ function r.warpStealEgg(dq)
         root.Anchored = true
         warpZeroVelocities(m.Character)
 
-        -- 5) guardStrikeLift: grab the target egg, strike again, re-grab
-        local function warpFireStrike()
-            if not warpStrikeRemote then return false end
-            if warpStrikeRemote:IsA("RemoteFunction") then
-                pcall(function() warpStrikeRemote:InvokeServer() end)
-            else
-                pcall(function() warpStrikeRemote:FireServer() end)
-            end
-            return true
-        end
-        local function warpLiftTick()
-            pcall(function()
-                if m.Character then
-                    m.Character:PivotTo(snipeCFrame * CFrame.new(0, 0.4, 0))
-                end
-            end)
-            r.tryCarryEgg(dq)
-        end
-        root.Anchored = false
+        -- 5) At target: mirror stealEggPickup (grab -> stand tight -> regrab)
+        r.swapStealHumanoid()
+        local ph = r.prepareStealHumanoid()
+        if not ph then return false end
+        hum = r.getHumanoid() or ph
+        root = r.getRoot()
+        if not root then return false end
+        pcall(function() root.Anchored = false end)
         hum:ChangeState(Enum.HumanoidStateType.Running)
+        local dr = r.getSlotEggPosition(dq)
+        local groundPos = CFrame.new(dr.X, r.groundedY(dr.X, dr.Z, dr.Y), dr.Z)
 
-        -- [1/4] Lift target egg to trigger guard strike
-        local liftDeadline = os.clock() + 3.5
-        while s and r.isOn("AutoStealWarp") and os.clock() < liftDeadline and not r.warpCarryingEgg(snipeUid) do
-            warpLiftTick()
-            c.Heartbeat:Wait()
+        -- grab 1
+        local g1 = os.clock() + 2.5
+        while s and r.isOn("AutoStealWarp") and not r.warpCarryingEgg(snipeUid) and os.clock() < g1 do
+            local rr = r.getRoot()
+            if rr then r.placeRoot(rr, groundPos) end
+            r.tryCarryEgg(dq)
+            task.wait(0.05)
         end
         if not r.warpCarryingEgg(snipeUid) then
             if bu then pcall(r.runAutoDropEgg) end
@@ -1694,60 +1687,39 @@ function r.warpStealEgg(dq)
             return false
         end
 
-        -- [2/4] Wait for Guard Strike while holding it (strike once, do not re-grab)
-        local strikeDeadline = os.clock() + 4.5
-        local strikeFired = false
-        while s and r.isOn("AutoStealWarp") and r.warpCarryingEgg(snipeUid) and os.clock() < strikeDeadline do
-            pcall(function()
-                if m.Character then
-                    m.Character:PivotTo(snipeCFrame * CFrame.new(0, 0.4, 0))
-                end
-            end)
-            r.warpSpawnFloor(snipePos, 14)
-            if not strikeFired then strikeFired = warpFireStrike() end
-            c.Heartbeat:Wait()
-        end
-
-        -- [3/4] Re-grab after the strike knocks it loose
-        local regrabTimeout = os.clock() + 3
-        while s and r.isOn("AutoStealWarp") and os.clock() < regrabTimeout and not r.warpCarryingEgg(snipeUid) do
-            warpLiftTick()
-            c.Heartbeat:Wait()
-        end
-
-        -- 6) Confirm the carry registers (stand tight once)
-        if not r.warpCarryingEgg(snipeUid) then
-            r.tryCarryEgg(dq)
-            task.wait(0.12)
-        end
+        -- stand tight (lock position / no ragdoll anim, like stealEgg)
         do
-            local heldRoot = r.getRoot()
-            if heldRoot then
-                pcall(function() heldRoot.Anchored = true end)
-                heldRoot.AssemblyLinearVelocity = Vector3.zero
-                heldRoot.AssemblyAngularVelocity = Vector3.zero
+            local rr = r.getRoot()
+            if rr then
+                pcall(function() rr.Anchored = true end)
+                rr.AssemblyLinearVelocity = Vector3.zero
+                rr.AssemblyAngularVelocity = Vector3.zero
                 c.Heartbeat:Wait()
             end
         end
-        r.holdAtPosition(bp, function() return r.isOn("AutoStealWarp") and bu end, true)
+        r.holdAtPosition(bp, function()
+            return r.isOn("AutoStealWarp") and r.warpCarryingEgg(snipeUid)
+        end, true)
         if not r.isOn("AutoStealWarp") then return false end
+
+        -- regrab after hold
+        if not r.warpCarryingEgg(snipeUid) then r.tryCarryEgg(dq); task.wait(0.12) end
+        local g2 = os.clock() + 1.5
+        while s and r.isOn("AutoStealWarp") and not r.warpCarryingEgg(snipeUid) and os.clock() < g2 do
+            r.tryCarryEgg(dq)
+            task.wait(0.05)
+        end
         if not r.warpCarryingEgg(snipeUid) then
             if bu then pcall(r.runAutoDropEgg) end
             r.stealCleanup()
             return false
         end
 
-        -- 7) Return home with the stolen egg
+        -- 6) Return home immediately (no extra wait, like stealEgg)
         local q0 = os.clock()
         while s and r.isOn("AutoStealWarp") and os.clock() - q0 < 180 do
-            if bu then
-                if r.returnToBaseBypass(function() return r.isOn("AutoStealWarp") and bu end) then
-                    local q1 = os.clock() + 3
-                    while s and r.isOn("AutoStealWarp") and bu and os.clock() < q1 do
-                        task.wait(0.1)
-                    end
-                    return true
-                end
+            if bu and r.returnToBaseBypass(function() return r.isOn("AutoStealWarp") and bu end) then
+                return true
             end
             if not bu and r.isOn("AutoStealWarp") then
                 local dq2 = r.findEggPart(snipeUid)
