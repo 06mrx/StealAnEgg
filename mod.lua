@@ -1023,7 +1023,7 @@ function r.returnToBaseBypass(dq)
     local dr = r.getBasePosition()
     if not dr then return false end
     if dq and not dq() then return false end
-    local eeAlt = tonumber(r.optionValue("ReturnFlyHeight", 40)) or 40
+    local eeAlt = tonumber(r.optionValue("ReturnFlyHeight", 27)) or 27
     return r.bypassMoveToViaCenter(Vector3.new(dr.X, dr.Y + 3, dr.Z), dq, r.bypassSpeed(), eeAlt)
 end
 function r.returnToBase(dq) return r.returnToBaseBypass(dq) end
