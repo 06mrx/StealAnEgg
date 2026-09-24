@@ -2191,7 +2191,7 @@ function r.runAutoSellEggs()
     local uids = r.getSellableEggUids()
     game:GetService("StarterGui"):SetCore("SendNotification", {
                     Title = "AutoSell",
-                    Text = tostring("Auto Sell", tostring(#uids) .. " eggs to sell."),
+                    Text = tostring("Auto Sell" .. tostring(#uids) .. " eggs to sell."),
                     Duration = 3
                 })
     -- r.notify(, "Success", 3)
