@@ -2179,6 +2179,11 @@ function r.getSellableEggUids()
     local du = r.multiSelected("SellEggRarities")
     for dv, dw in pairs(dr) do
         if typeof(dv) == "string" and typeof(dw) == "table" and dw.Placement == nil then
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "AutoSell",
+                    Text = "ok",
+                    Duration = 3
+                })
             local dx = r.resolveRarity(dw.AssetCategory)
             if not dt or (typeof(dx) == "string" and du[dx] == true) then
                 table.insert(ds, dv)
@@ -2191,9 +2196,11 @@ function r.runAutoSellEggs()
     local uids = r.getSellableEggUids()
     game:GetService("StarterGui"):SetCore("SendNotification", {
                     Title = "AutoSell",
-                    Text = tostring("Auto Sell" .. tostring(#uids) .. " eggs to sell."),
+                    Text = "Auto Sell All" .. tostring(#uids) .. " eggs to sell.",
                     Duration = 3
                 })
+
+        
     -- r.notify(, "Success", 3)
     if #uids == 0 then return end
     r.sellSelectionBatch({}, uids)
