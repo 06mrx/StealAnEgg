@@ -678,6 +678,7 @@ end
 
 local origWalkSpeed, origJumpPower, origUseJumpPower = nil, nil, nil
 function r.stealCleanup()
+    r.statueDespawn()
     local part = r.getRoot()
     if part then
         pcall(function() part.Anchored = false end)
@@ -1014,6 +1015,95 @@ function r.ensureAtPlot(dq)
     if not dr then return false end
     return r.bypassMoveTo(dr, dq, r.bypassSpeed())
 end
+
+local statueActive = false
+local statueModel = nil
+local statueBasePos = nil
+local statueConn = nil
+
+function r.statueSpawn()
+    if statueActive or not r.isOn("StatueCam") then return end
+    local real = m.Character
+    if not real then return end
+    local stand = r.getPetAreaStandPosition() or r.getBasePosition()
+    if not stand then return end
+    local statue
+    pcall(function()
+        real.Archivable = true
+        statue = real:Clone()
+    end)
+    if not statue then return end
+    for _, dr in ipairs(statue:GetDescendants()) do
+        if dr:IsA("LocalScript") or dr:IsA("Script") then pcall(function() dr:Destroy() end) end
+    end
+    local sh = statue:FindFirstChildOfClass("Humanoid")
+    if sh then
+        pcall(function()
+            sh:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+            sh.WalkSpeed = 0
+            sh.JumpPower = 0
+            sh.AutoRotate = false
+            sh.PlatformStand = false
+            sh.Sit = false
+        end)
+    end
+    for _, dr in ipairs(statue:GetDescendants()) do
+        if dr:IsA("BasePart") then
+            pcall(function()
+                dr.Anchored = true
+                dr.AssemblyLinearVelocity = Vector3.zero
+                dr.AssemblyAngularVelocity = Vector3.zero
+            end)
+        end
+    end
+    local sroot = statue:FindFirstChild("HumanoidRootPart")
+    if sroot then
+        pcall(function() sroot.CFrame = CFrame.new(stand) * CFrame.Angles(0, math.rad(180), 0) end)
+    end
+    statue.Name = "ApexStatueCam"
+    statue.Parent = h
+    statueModel = statue
+    statueBasePos = stand
+    statueActive = true
+
+    local cam = h.CurrentCamera
+    if not cam then statueActive = false; return end
+    pcall(function() cam.CameraType = Enum.CameraType.Scriptable end)
+    local lookOffset = Vector3.new(0, 4, 0)
+    statueConn = c.RenderStepped:Connect(function()
+        local sm = statueModel
+        if not r.statueToggle() or not sm or not sm.Parent then
+            r.statueDespawn()
+            return
+        end
+        local sroot2 = sm:FindFirstChild("HumanoidRootPart")
+        local p = sroot2 and sroot2.Position or (statueBasePos.Position + Vector3.new(0, 3, 0))
+        local eye = statueBasePos.Position + Vector3.new(0, 5, 12)
+        cam.CFrame = CFrame.lookAt(eye, p + lookOffset)
+    end)
+end
+
+function r.statueDespawn()
+    statueActive = false
+    if statueConn then
+        pcall(function() statueConn:Disconnect() end)
+        statueConn = nil
+    end
+    if statueModel then
+        pcall(function() statueModel:Destroy() end)
+        statueModel = nil
+    end
+    statueBasePos = nil
+    local cam = h.CurrentCamera
+    if cam then
+        pcall(function()
+            cam.CameraType = Enum.CameraType.Custom
+            local hum = m.Character and m.Character:FindFirstChildOfClass("Humanoid")
+            if hum then cam.CameraSubject = hum end
+        end)
+    end
+end
+function r.statueToggle() return r.isOn("StatueCam") end
 
 -- ============================================================
 -- EGG / STEAL
@@ -1812,15 +1902,29 @@ function r.runAutoSteal()
     task.wait(0.1)
     local dq = r.pickStealTarget()
     if dq then
-        if r.isOn("AutoStealWarp") then return r.warpStealEgg(dq) end
-        return r.stealEgg(dq)
+        r.statueSpawn()
+        local ds, dd
+        if r.isOn("AutoStealWarp") then
+            ds, dd = pcall(r.warpStealEgg, dq)
+        else
+            ds, dd = pcall(r.stealEgg, dq)
+        end
+        r.statueDespawn()
+        if ds then return dd == true end
+        return false
     end
     if r.isOn("AutoChaseAndHit") then
         local dr = r.pickChaseHitTarget()
         if dr then
             if dr.root then r.runChaseAndHit(dr.rec, dr.root) end
             local ds = r.findEggPart(dr.rec.Uid) or r.pickStealTarget()
-            if ds then return r.stealEgg(ds) end
+            if ds then
+                r.statueSpawn()
+                local de, df = pcall(r.stealEgg, ds)
+                r.statueDespawn()
+                if de then return df == true end
+                return false
+            end
         end
     end
     return false
@@ -2081,6 +2185,7 @@ function r.getSellableEggUids()
 end
 function r.runAutoSellEggs()
     local uids = r.getSellableEggUids()
+    notify("AutoSellEggs: " .. tostring(#uids) .. " eggs to sell.")
     if #uids == 0 then return end
     r.sellSelectionBatch({}, uids)
     task.wait(0.1)
@@ -3282,6 +3387,7 @@ do
     dt.AddToggle(secSteal, { Id = "AutoChaseAndHit", Title = "Auto Chase & Hit Carriers", Description = "Chase players carrying an egg when no other target is left, or when the only Divine egg is carried. Knock the egg loose with a Bat tool, then pick it up.", Default = false })
     dt.AddSlider(secSteal, { Id = "ReturnFlyHeight", Title = "Return Flight Height", Min = 3, Max = 30, Default = 30, Step = 1, Suffix = " studs" })
     dt.AddToggle(secSteal, { Id = "AutoDropEgg", Title = "Auto Drop Held Egg", Default = false })
+    dt.AddToggle(secSteal, { Id = "StatueCam", Title = "Base Statue Camera", Description = "Keep camera at base watching a statue clone while your real character steals; camera restores when it returns to base.", Default = false })
 
     local secPlace = dt.AddSection(farmTab, { Title = "Place & Hatch" })
     dt.AddToggle(secPlace, { Id = "AutoPlaceSelected", Title = "Auto Place Selected", Default = false })
