@@ -636,6 +636,46 @@ function r.swapStealHumanoid()
     return true
 end
 
+function r.disableRagdoll(dq)
+    dq = dq or m.Character
+    if not dq then return false end
+    local dh = dq:FindFirstChildOfClass("Humanoid")
+    if dh then
+        pcall(function()
+            dh:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            dh:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            dh:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+        end)
+    end
+    for _, dr in ipairs(dq:GetDescendants()) do
+        if dr:IsA("LocalScript") then
+            local dn = string.lower(dr.Name)
+            if string.find(dn, "ragdoll") or string.find(dn, "fall") then
+                pcall(function() dr.Disabled = true end)
+            end
+        end
+        if dr:IsA("BallSocketConstraint") or dr:IsA("HingeConstraint") then
+            pcall(function() dr:Destroy() end)
+        end
+    end
+    for _, dr in ipairs(dq:GetDescendants()) do
+        if dr:IsA("Motor6D") and dr.Part0 and dr.Part1 then
+            pcall(function()
+                dr.Enabled = true
+                local dw = dr.Part1:FindFirstChild("RigidJointWeld_" .. dr.Name)
+                if not dw then
+                    dw = Instance.new("WeldConstraint")
+                    dw.Name = "RigidJointWeld_" .. dr.Name
+                    dw.Part0 = dr.Part0
+                    dw.Part1 = dr.Part1
+                    dw.Parent = dr.Part1
+                end
+            end)
+        end
+    end
+    return true
+end
+
 local origWalkSpeed, origJumpPower, origUseJumpPower = nil, nil, nil
 function r.stealCleanup()
     local part = r.getRoot()
@@ -1574,6 +1614,7 @@ function r.warpStealEgg(dq)
         hum:UnequipTools()
         hum = r.prepareStealHumanoid()
         if not hum then return false end
+        r.disableRagdoll(m.Character)
         root = r.getRoot()
         if not root then return false end
 
