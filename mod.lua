@@ -1024,7 +1024,16 @@ function r.returnToBaseBypass(dq)
     if not dr then return false end
     if dq and not dq() then return false end
     local eeAlt = tonumber(r.optionValue("ReturnFlyHeight", 40)) or 40
-    return r.bypassMoveTo(Vector3.new(dr.X, dr.Y + 3, dr.Z), dq, r.bypassSpeed(), eeAlt)
+    if bu then
+        -- Sprint ke atas DULU ketika membawa telur, agar lawan tak sempat merampas
+        local drRoot = r.getRoot()
+        if drRoot then
+            local dsY = r.groundedY(drRoot.Position.X, drRoot.Position.Z, drRoot.Position.Y)
+            local upRoot = Vector3.new(drRoot.Position.X, dsY + math.max(eeAlt, 27), drRoot.Position.Z)
+            if not r.bypassMoveTo(upRoot, dq, r.bypassSpeed(), eeAlt) then return false end
+        end
+    end
+    return r.bypassMoveToViaCenter(Vector3.new(dr.X, dr.Y + 3, dr.Z), dq, r.bypassSpeed(), eeAlt)
 end
 function r.returnToBase(dq) return r.returnToBaseBypass(dq) end
 function r.ensureAtPlot(dq)
