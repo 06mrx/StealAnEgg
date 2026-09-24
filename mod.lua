@@ -1671,20 +1671,22 @@ function r.warpStealEgg(dq)
             end
             return true
         end
-        local function warpGrabEgg()
-            root = r.getRoot()
-            if root then
-                local gy = r.groundedY(snipePos.X, snipePos.Z, snipePos.Y)
-                r.placeRoot(root, CFrame.new(snipePos.X, gy, snipePos.Z))
-            end
+        local function warpLiftTick()
+            pcall(function()
+                if m.Character then
+                    m.Character:PivotTo(snipeCFrame * CFrame.new(0, 0.4, 0))
+                end
+            end)
             r.tryCarryEgg(dq)
         end
+        root.Anchored = false
+        hum:ChangeState(Enum.HumanoidStateType.Running)
 
-        -- [1/4] Lift target egg
+        -- [1/4] Lift target egg to trigger guard strike
         local liftDeadline = os.clock() + 3.5
         while s and r.isOn("AutoStealWarp") and os.clock() < liftDeadline and not r.warpCarryingEgg(snipeUid) do
-            warpGrabEgg()
-            task.wait(0.04)
+            warpLiftTick()
+            c.Heartbeat:Wait()
         end
         if not r.warpCarryingEgg(snipeUid) then
             if bu then pcall(r.runAutoDropEgg) end
@@ -1692,27 +1694,31 @@ function r.warpStealEgg(dq)
             return false
         end
 
-        -- [2/4] Wait for Guard Strike while holding it
+        -- [2/4] Wait for Guard Strike while holding it (strike once, do not re-grab)
         local strikeDeadline = os.clock() + 4.5
         local strikeFired = false
         while s and r.isOn("AutoStealWarp") and r.warpCarryingEgg(snipeUid) and os.clock() < strikeDeadline do
-            r.warpSpawnFloor(snipePos, 8)
-            warpGrabEgg()
+            pcall(function()
+                if m.Character then
+                    m.Character:PivotTo(snipeCFrame * CFrame.new(0, 0.4, 0))
+                end
+            end)
+            r.warpSpawnFloor(snipePos, 14)
             if not strikeFired then strikeFired = warpFireStrike() end
-            task.wait(0.04)
+            c.Heartbeat:Wait()
         end
 
-        -- [3/4] Re-grab after the strike (egg gets knocked loose)
+        -- [3/4] Re-grab after the strike knocks it loose
         local regrabTimeout = os.clock() + 3
         while s and r.isOn("AutoStealWarp") and os.clock() < regrabTimeout and not r.warpCarryingEgg(snipeUid) do
-            warpGrabEgg()
-            task.wait(0.04)
+            warpLiftTick()
+            c.Heartbeat:Wait()
         end
 
         -- 6) Confirm the carry registers (stand tight once)
         if not r.warpCarryingEgg(snipeUid) then
             r.tryCarryEgg(dq)
-            task.wait(0.1)
+            task.wait(0.12)
         end
         do
             local heldRoot = r.getRoot()
