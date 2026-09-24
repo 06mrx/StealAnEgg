@@ -143,7 +143,7 @@ function r.remoteFrom(t, ...)
     return nil
 end
 
-local t        = r.requirePath(i, 6, "Shared", "Save") or r.findModule("Save")
+local t        = r.requirePath(i, 6, "Shared", "Save")
 local u         = r.requirePath(i, 4, "Shared", "Globals", "Constants") or r.findModule("Constants")
 local v = r.requirePath(i, 4, "Client", "BaseUpgrade") or r.findModule("BaseUpgrade")
 local w          = r.requirePath(i, 4, "Shared", "Types", "Eggs") or r.findModule("Eggs")
@@ -2103,6 +2103,11 @@ function r.getSellablePets()
     local dr = dq and dq.Inventory
     local ds = {}
     if typeof(dr) ~= "table" then return ds end
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "AutoSell",
+                    Text = tostring(#dr) .. " pets in inventory to check.",
+                    Duration = 3
+                })
     local dt = dq.EquippedAssets or {}
     local du = tonumber(r.optionValue("SellMaxScale", 10)) or 10
     local dv = r.isOn("SellKeepMutated")
@@ -2173,6 +2178,11 @@ end
 function r.getSellableEggUids()
     local dq = r.getSave()
     local dr = dq and dq.EggInventory
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "AutoSell",
+                    Text = tostring(#dr) .. " eggs in inventory to check.",
+                    Duration = 3
+                })
     local ds = {}
     if typeof(dr) ~= "table" then return ds end
     local dt = r.multiHasAny("SellEggRarities")
