@@ -3420,6 +3420,9 @@ do
     dt.AddToggle(secSellEggs, { Id = "AutoSellEggs", Title = "Auto Sell Eggs", Default = false })
     dt.AddDropdown(secSellEggs, { Id = "SellEggRarities", Title = "Rarities", Options = at, Multi = true, Default = {} })
     dt.AddSlider(secSellEggs, { Id = "SellEggInterval", Title = "Interval", Min = 1, Max = 120, Default = 8, Step = 1, Suffix = " s" })
+    dt.AddButton(secSellEggs, { Title = "Sell All Eggs Now", Text = "Sell All", Callback = function()
+        task.spawn(function() r.runAutoSellEggs() end)
+    end })
 
     local secSellPets = dt.AddSection(sellTab, { Title = "Auto Sell Pets", Description = "Sell spare pets" })
     dt.AddToggle(secSellPets, { Id = "AutoSellPets", Title = "Auto Sell Pets", Default = false })
@@ -3429,6 +3432,9 @@ do
     dt.AddToggle(secSellPets, { Id = "SellKeepEquipped", Title = "Never Sell Equipped", Default = true })
     dt.AddSlider(secSellPets, { Id = "SellMaxScale", Title = "Maximum Scale to Sell", Min = 0, Max = 10, Default = 10, Step = 0.1 })
     dt.AddSlider(secSellPets, { Id = "SellInterval", Title = "Interval", Min = 1, Max = 120, Default = 6, Step = 1, Suffix = " s" })
+    dt.AddButton(secSellPets, { Title = "Sell All Pets Now", Text = "Sell All", Callback = function()
+        task.spawn(function() r.runAutoSellPets() end)
+    end })
 
     -- ============ PETS ============
     local petsTab = dt.AddTab({ Id = "pets", Title = "Pets" })
