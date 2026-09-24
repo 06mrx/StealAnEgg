@@ -963,6 +963,24 @@ function r.bypassMoveTo(dq, dr, ds, eeAlt)
     return dz
 end
 
+function r.bypassMoveToViaCenter(dq, dr, ds, eeAlt)
+    if typeof(dq) ~= "Vector3" then return false end
+    local start = r.getRoot()
+    if not start then return false end
+    if (start.Position - dq).Magnitude <= 60 then
+        return r.bypassMoveTo(dq, dr, ds, eeAlt)
+    end
+    local pts = r.buildStealPath(start.Position, dq)
+    if #pts < 2 then
+        return r.bypassMoveTo(dq, dr, ds, eeAlt)
+    end
+    for _, wp in ipairs(pts) do
+        if dr and not dr() then return false end
+        if not r.bypassMoveTo(wp, dr, ds, eeAlt) then return false end
+    end
+    return true
+end
+
 -- ============================================================
 -- HOLD 3s: ĐỨNG CHẶT (Anchored). Hết 3s -> nhả anchor dứt khoát
 -- ============================================================
@@ -1307,6 +1325,7 @@ function r.swingBat()
 end
 function r.runChaseAndHit(dq, targetRoot)
     if not dq or not targetRoot then return false end
+    if bz or r.isDoubleSpeedVisible() then pcall(r.stopTreadmillTraining) end
     local dr = os.clock()
     while s and r.isOn("AutoChaseAndHit") and r.eggInteractActive() and os.clock() - dr < 120 do
         local ds = r.findAreaEggRecord(dq.Uid)
@@ -1323,7 +1342,7 @@ function r.runChaseAndHit(dq, targetRoot)
                 math.clamp(targetRoot.Position.X, bn.minX + 25, bn.maxX - 25),
                 targetRoot.Position.Y,
                 math.clamp(targetRoot.Position.Z, bn.minZ + 25, bn.maxZ - 25)) or targetRoot.Position)
-            if dv and not r.bypassMoveTo(dv, function() return r.isOn("AutoChaseAndHit") and r.eggInteractActive() end, r.bypassSpeed(), 4) then
+            if dv and not r.bypassMoveToViaCenter(dv, function() return r.isOn("AutoChaseAndHit") and r.eggInteractActive() end, r.bypassSpeed(), 4) then
                 break
             end
         else
@@ -1682,11 +1701,11 @@ function r.warpStealEgg(dq)
     local function notify(msg)
         task.spawn(function()
             pcall(function()
-                game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "Warp Mode",
-                    Text = tostring(msg),
-                    Duration = 3
-                })
+                -- game:GetService("StarterGui"):SetCore("SendNotification", {
+                --     Title = "Warp Mode",
+                --     Text = tostring(msg),
+                --     Duration = 3
+                -- })
             end)
         end)
     end
@@ -1736,7 +1755,7 @@ function r.warpStealEgg(dq)
             root = r.getRoot()
             if (root.Position - lakePos).Magnitude > 60 then
                 notify("[2/7] Gliding to Lake Egg...")
-                if not r.bypassMoveTo(lakePos, function() return r.isOn("AutoStealWarp") end, r.stealSpeed(), 3) then
+                if not r.bypassMoveToViaCenter(lakePos, function() return r.isOn("AutoStealWarp") end, r.stealSpeed(), 3) then
                     notify("[2/7] Lake glide failed!")
                     return false
                 end
@@ -1902,11 +1921,9 @@ function r.runAutoSteal()
     task.wait(0.1)
     local dq = r.pickStealTarget()
     if dq then
+        if bz or r.isDoubleSpeedVisible() then pcall(r.stopTreadmillTraining) end
         r.statueSpawn()
-        pcall(function()
-            local dq = game:GetService("ReplicatedStorage").Packages.Networking["RF/Treadmill/AskDoff"]
-            if dq then dq:InvokeServer() end
-        end)
+        
         local ds, dd
         if r.isOn("AutoStealWarp") then
             ds, dd = pcall(r.warpStealEgg, dq)
@@ -2009,6 +2026,7 @@ function r.canAutoPlace()
 end
 function r.runAutoPlaceEggs(dq)
     if bu or not aj.RequestPlaceEgg then return end
+    if bz or r.isDoubleSpeedVisible() then pcall(r.stopTreadmillTraining) end
     local function dr() return (dq == true or r.placingEnabled()) and not bu end
     local ds = r.getUnplacedEggUids()
     if #ds == 0 or not r.ensureAtPlot(dr) then return end
@@ -2103,11 +2121,11 @@ function r.getSellablePets()
     local dr = dq and dq.Inventory
     local ds = {}
     if typeof(dr) ~= "table" then return ds end
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "AutoSell",
-                    Text = tostring(#dr) .. " pets in inventory to check.",
-                    Duration = 3
-                })
+    -- game:GetService("StarterGui"):SetCore("SendNotification", {
+    --                 Title = "AutoSell",
+    --                 Text = tostring(#dr) .. " pets in inventory to check.",
+    --                 Duration = 3
+    --             })
     local dt = dq.EquippedAssets or {}
     local du = tonumber(r.optionValue("SellMaxScale", 10)) or 10
     local dv = r.isOn("SellKeepMutated")
@@ -2178,22 +2196,22 @@ end
 function r.getSellableEggUids()
     local dq = r.getSave()
     local dr = dq and dq.EggInventory
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "AutoSell",
-                    Text = tostring(#dr) .. " eggs in inventory to check.",
-                    Duration = 3
-                })
+    -- game:GetService("StarterGui"):SetCore("SendNotification", {
+    --                 Title = "AutoSell",
+    --                 Text = tostring(#dr) .. " eggs in inventory to check.",
+    --                 Duration = 3
+    --             })
     local ds = {}
     if typeof(dr) ~= "table" then return ds end
     local dt = r.multiHasAny("SellEggRarities")
     local du = r.multiSelected("SellEggRarities")
     for dv, dw in pairs(dr) do
         if typeof(dv) == "string" and typeof(dw) == "table" and dw.Placement == nil then
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "AutoSell",
-                    Text = "ok",
-                    Duration = 3
-                })
+            -- game:GetService("StarterGui"):SetCore("SendNotification", {
+            --         Title = "AutoSell",
+            --         Text = "ok",
+            --         Duration = 3
+            --     })
             local dx = r.resolveRarity(dw.AssetCategory)
             if not dt or (typeof(dx) == "string" and du[dx] == true) then
                 table.insert(ds, dv)
@@ -2204,11 +2222,11 @@ function r.getSellableEggUids()
 end
 function r.runAutoSellEggs()
     local uids = r.getSellableEggUids()
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "AutoSell",
-                    Text = "Auto Sell All" .. tostring(#uids) .. " eggs to sell.",
-                    Duration = 3
-                })
+    -- game:GetService("StarterGui"):SetCore("SendNotification", {
+    --                 Title = "AutoSell",
+    --                 Text = "Auto Sell All" .. tostring(#uids) .. " eggs to sell.",
+    --                 Duration = 3
+    --             })
 
         
     -- r.notify(, "Success", 3)
@@ -3801,9 +3819,6 @@ local function gd()
         end
         if gh then
             by[gf] = os.clock()
-            if gf ~= "Auto Treadmill" and (bz or r.isDoubleSpeedVisible()) then
-                pcall(r.stopTreadmillTraining)
-            end
             bx = true
             local gi, gj = pcall(gg.Run)
             bx = false
