@@ -1001,6 +1001,7 @@ function r.holdAtPosition(dq, dr, eeDef)
 end
 
 function r.returnToBaseBypass(dq)
+    r.statueDespawn()
     local dr = r.getBasePosition()
     if not dr then return false end
     if dq and not dq() then return false end
