@@ -1660,6 +1660,7 @@ function r.warpStealEgg(dq)
         root = r.getRoot()
         root.Anchored = true
         warpZeroVelocities(m.Character)
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Sampai di target!", Text = "Pesan Anda", Duration = 5})
 
         -- 5) At target: mirror stealEggPickup (grab -> stand tight -> regrab)
         r.swapStealHumanoid()
@@ -1673,6 +1674,7 @@ function r.warpStealEgg(dq)
         local dr = r.getSlotEggPosition(dq)
         local groundPos = CFrame.new(dr.X, r.groundedY(dr.X, dr.Z, dr.Y), dr.Z)
 
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "grab pertama!", Text = "Pesan Anda", Duration = 5})
         -- grab 1
         local g1 = os.clock() + 2.5
         while s and r.isOn("AutoStealWarp") and not r.warpCarryingEgg(snipeUid) and os.clock() < g1 do
@@ -1688,6 +1690,7 @@ function r.warpStealEgg(dq)
         end
 
         -- stand tight (lock position / no ragdoll anim, like stealEgg)
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Stay berdiri!", Text = "Pesan Anda", Duration = 5})
         do
             local rr = r.getRoot()
             if rr then
@@ -1697,11 +1700,13 @@ function r.warpStealEgg(dq)
                 c.Heartbeat:Wait()
             end
         end
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "hold at position!", Text = "Pesan Anda", Duration = 5})
         r.holdAtPosition(bp, function()
             return r.isOn("AutoStealWarp") and r.warpCarryingEgg(snipeUid)
         end, true)
         if not r.isOn("AutoStealWarp") then return false end
 
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "regrab!", Text = "Pesan Anda", Duration = 5})
         -- regrab after hold
         if not r.warpCarryingEgg(snipeUid) then r.tryCarryEgg(dq); task.wait(0.12) end
         local g2 = os.clock() + 1.5
@@ -1715,6 +1720,7 @@ function r.warpStealEgg(dq)
             return false
         end
 
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "balik!", Text = "Pesan Anda", Duration = 5})
         -- 6) Return home immediately (no extra wait, like stealEgg)
         local q0 = os.clock()
         while s and r.isOn("AutoStealWarp") and os.clock() - q0 < 180 do
