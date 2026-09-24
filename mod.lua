@@ -2189,7 +2189,12 @@ function r.getSellableEggUids()
 end
 function r.runAutoSellEggs()
     local uids = r.getSellableEggUids()
-    r.notify("Auto Sell", tostring(#uids) .. " eggs to sell.", "Success", 3)
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "AutoSell",
+                    Text = tostring("Auto Sell", tostring(#uids) .. " eggs to sell."),
+                    Duration = 3
+                })
+    -- r.notify(, "Success", 3)
     if #uids == 0 then return end
     r.sellSelectionBatch({}, uids)
     task.wait(0.1)
