@@ -1736,6 +1736,8 @@ function r.warpStealEgg(dq)
         local groundPos = CFrame.new(dr.X, r.groundedY(dr.X, dr.Z, dr.Y), dr.Z)
 
         -- grab 1
+        notify("waiting 3s for grab...")
+        task.wait(3)
         notify("[6/7] Grab 1...")
         local g1 = os.clock() + 2.5
         while s and r.isOn("AutoStealWarp") and not r.warpCarryingEgg(snipeUid) and os.clock() < g1 do
