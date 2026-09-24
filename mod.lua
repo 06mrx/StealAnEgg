@@ -1578,6 +1578,7 @@ function r.warpStealEgg(dq)
         if not root then return false end
 
         -- DiceHub [1/7]: pre-flight — abort if target egg was already taken
+        r.swapStealHumanoid()
         notify("[1/7] Pre-Flight Desync...")
         if not r.warpTargetAvailable(snipeUid) then
             notify("[1/7] Target taken! Aborting.")
@@ -1742,6 +1743,7 @@ function r.warpStealEgg(dq)
         local g1 = os.clock() + 2.5
         while s and r.isOn("AutoStealWarp") and not r.warpCarryingEgg(snipeUid) and os.clock() < g1 do
             local rr = r.getRoot()
+            
             if rr then r.placeRoot(rr, groundPos) end
             r.tryCarryEgg(dq)
             task.wait(0.05)
