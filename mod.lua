@@ -863,6 +863,7 @@ function r.getBasePosition()
     if dq.PetArea then return dq.PetArea.Position end
     return nil
 end
+
 function r.getPetAreaStandPosition()
     if ak.GetPlotData then
         local dq = ak.GetPlotData()
