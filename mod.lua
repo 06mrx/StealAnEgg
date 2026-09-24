@@ -1714,80 +1714,31 @@ function r.warpStealEgg(dq)
         -- 5) At target: keep the desync lock (DiceHub holds Anchored + zero
         --    velocity after PivotTo), drop the carried lake egg WHILE locked,
         --    hold it briefly, then release into a stealEggPickup-style grab.
-        -- notify("[6/7] Picking up Target Egg...")
-        -- if bu then pcall(r.runAutoDropEgg) end
-        -- task.wait(0.06)
-        -- root = r.getRoot()
-        -- if root then
-        --     root.Anchored = true
-        --     root.AssemblyLinearVelocity = Vector3.zero
-        --     root.AssemblyAngularVelocity = Vector3.zero
-        -- end
-        -- task.wait(0.06)
-        -- root = r.getRoot()
-        -- if root then pcall(function() root.Anchored = false end) end
-        -- hum:ChangeState(Enum.HumanoidStateType.Running)
+        notify("[6/7] Picking up Target Egg...")
+        if bu then pcall(r.runAutoDropEgg) end
+        task.wait(0.06)
+        root = r.getRoot()
+        if root then
+            root.Anchored = true
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+        end
+        task.wait(0.06)
+        root = r.getRoot()
+        if root then pcall(function() root.Anchored = false end) end
+        hum:ChangeState(Enum.HumanoidStateType.Running)
 
-        -- if not r.waitFor(2, 0.05, function() return not bu end) then
-        --     pcall(r.runAutoDropEgg)
-        --     task.wait(0.3)
-        -- end
+        if not r.waitFor(2, 0.05, function() return not bu end) then
+            pcall(r.runAutoDropEgg)
+            task.wait(0.3)
+        end
 
-        -- local dr = r.getSlotEggPosition(dq)
-        -- local groundPos = CFrame.new(dr.X, r.groundedY(dr.X, dr.Z, dr.Y), dr.Z)
+        -- stealEggPickup handles everything: grab 1 -> stand tight (3s
+        -- anchored, no ragdoll) -> grab 2, exactly like normal stealEgg.
+        local pickupOk = r.stealEggPickup(dq)
+        if not pickupOk then notify("[6/7] Pickup failed, will retry.") end
 
-        -- -- grab 1
-        -- notify("waiting 3s for grab...")
-        -- task.wait(3)
-        -- notify("[6/7] Grab 1...")
-        -- local g1 = os.clock() + 2.5
-        -- while s and r.isOn("AutoStealWarp") and not r.warpCarryingEgg(snipeUid) and os.clock() < g1 do
-        --     local rr = r.getRoot()
-            
-        --     if rr then r.placeRoot(rr, groundPos) end
-        --     r.tryCarryEgg(dq)
-        --     task.wait(0.05)
-        -- end
-        -- if not r.warpCarryingEgg(snipeUid) then
-        --     notify("[6/7] Grab 1 failed!")
-        --     if bu then pcall(r.runAutoDropEgg) end
-        --     r.stealCleanup()
-        --     return false
-        -- end
-
-        -- -- stand tight (lock position / no ragdoll anim, like stealEgg)
-        -- notify("[6/7] Stand tight...")
-        -- do
-        --     local rr = r.getRoot()
-        --     if rr then
-        --         pcall(function() rr.Anchored = true end)
-        --         rr.AssemblyLinearVelocity = Vector3.zero
-        --         rr.AssemblyAngularVelocity = Vector3.zero
-        --         c.Heartbeat:Wait()
-        --     end
-        -- end
-        -- r.holdAtPosition(bp, function()
-        --     return r.isOn("AutoStealWarp") and r.warpCarryingEgg(snipeUid)
-        -- end, true)
-        -- if not r.isOn("AutoStealWarp") then return false end
-
-        -- -- regrab after hold
-        -- notify("[6/7] Re-grab...")
-        -- if not r.warpCarryingEgg(snipeUid) then r.tryCarryEgg(dq); task.wait(0.12) end
-        -- local g2 = os.clock() + 1.5
-        -- while s and r.isOn("AutoStealWarp") and not r.warpCarryingEgg(snipeUid) and os.clock() < g2 do
-        --     r.tryCarryEgg(dq)
-        --     task.wait(0.05)
-        -- end
-        -- if not r.warpCarryingEgg(snipeUid) then
-        --     notify("[6/7] Re-grab failed!")
-        --     if bu then pcall(r.runAutoDropEgg) end
-        --     r.stealCleanup()
-        --     return false
-        -- end
-
-        r.stealEggPickup(dq)
-
+        
         -- 6) Return home immediately (no extra wait, like stealEgg)
         notify("[7/7] Target secured! Returning home...")
         local q0 = os.clock()
