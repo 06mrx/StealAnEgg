@@ -1525,6 +1525,14 @@ function r.warpCarryingEgg(uid)
     return rec ~= nil and rec.State == "Carried"
 end
 
+-- DiceHub checkEggState: true if target still stealable / carried by self
+function r.warpTargetAvailable(uid)
+    if typeof(returnEggUid) == "string" and returnEggUid ~= "" and returnEggUid == uid then return true end
+    local rec = r.findAreaEggRecord(uid)
+    if not rec then return true end
+    return rec.State == "Slot" or rec.State == "Dropped"
+end
+
 local function warpZeroVelocities(char)
     if not char then return end
     for _, part in ipairs(char:GetDescendants()) do
@@ -1538,6 +1546,17 @@ end
 function r.warpStealEgg(dq)
     if warpBusy then return false end
     warpBusy = true
+    local function notify(msg)
+        task.spawn(function()
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "Warp Mode",
+                    Text = tostring(msg),
+                    Duration = 3
+                })
+            end)
+        end)
+    end
     local okCb, res = pcall(function()
         if not dq then return false end
         local snipeUid = dq.Name
@@ -1553,7 +1572,17 @@ function r.warpStealEgg(dq)
         if not root or not hum then return false end
 
         hum:UnequipTools()
-        if not r.prepareStealHumanoid() then return false end
+        hum = r.prepareStealHumanoid()
+        if not hum then return false end
+        root = r.getRoot()
+        if not root then return false end
+
+        -- DiceHub [1/7]: pre-flight — abort if target egg was already taken
+        notify("[1/7] Pre-Flight Desync...")
+        if not r.warpTargetAvailable(snipeUid) then
+            notify("[1/7] Target taken! Aborting.")
+            return false
+        end
 
         -- 1) Need a held egg to trigger the guard strike: use current carry
         --    or fetch the nearest lake egg (DiceHub uses it as the striker).
@@ -1562,16 +1591,22 @@ function r.warpStealEgg(dq)
             heldOk = returnEggUid
         else
             local lake = r.findWarpLakeEgg()
-            if not lake then return false end
+            if not lake then
+                notify("[2/7] Lake egg not found!")
+                return false
+            end
             local lakePos = lake.Position
             pcall(function() m:RequestStreamAroundAsync(lakePos) end)
             r.warpSpawnFloor(lakePos, 8)
             root = r.getRoot()
             if (root.Position - lakePos).Magnitude > 60 then
+                notify("[2/7] Gliding to Lake Egg...")
                 if not r.bypassMoveTo(lakePos, function() return r.isOn("AutoStealWarp") end, r.stealSpeed(), 3) then
+                    notify("[2/7] Lake glide failed!")
                     return false
                 end
             else
+                notify("[2/7] Aligning with Lake Egg...")
                 root = r.getRoot()
                 r.placeRoot(root, lake.CFrame * CFrame.new(0, 0.4, 0))
             end
@@ -1590,6 +1625,7 @@ function r.warpStealEgg(dq)
                 task.wait(0.05)
             end
             if not r.warpCarryingEgg(lake.Uid) then
+                notify("[2/7] Lake pickup failed!")
                 r.stealCleanup()
                 return false
             end
@@ -1597,10 +1633,12 @@ function r.warpStealEgg(dq)
         end
 
         -- 2) Pre-stream the snipe position + safety floor
+        notify("[3/7] Pre-streaming Target...")
         pcall(function() m:RequestStreamAroundAsync(snipePos) end)
         r.warpSpawnFloor(snipePos, 12)
 
         -- 3) Wait for the physical bounce (guard strike knockback)
+        notify("[4/7] Waiting for physical bounce...")
         root = r.getRoot()
         root.Anchored = false
         hum:ChangeState(Enum.HumanoidStateType.Running)
@@ -1648,34 +1686,57 @@ function r.warpStealEgg(dq)
         if tollConn then pcall(function() tollConn:Disconnect() end) end
         hum.WalkSpeed = savedWalk
         if not bounceDetected then
+            notify("[4/7] No bounce detected, aborting!")
+            if bu then pcall(r.runAutoDropEgg) end
+            r.stealCleanup()
+            return false
+        end
+
+        -- DiceHub [4/7]: re-check target wasn't snatched while bouncing
+        task.wait(0.05)
+        if not r.warpTargetAvailable(snipeUid) then
+            notify("[4/7] Target taken! Aborting warp.")
             if bu then pcall(r.runAutoDropEgg) end
             r.stealCleanup()
             return false
         end
 
         -- 4) Warp to the snipe position
+        notify("[5/7] Warping to Target Egg...")
         task.wait(0.05)
         r.warpSpawnFloor(snipePos, 8)
         m.Character:PivotTo(snipeCFrame * CFrame.new(0, 0.4, 0))
         root = r.getRoot()
         root.Anchored = true
         warpZeroVelocities(m.Character)
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Sampai di target!", Text = "Pesan Anda", Duration = 5})
 
-        -- 5) At target: mirror stealEggPickup (grab -> stand tight -> regrab)
-        r.swapStealHumanoid()
-        local ph = r.prepareStealHumanoid()
-        if not ph then return false end
-        hum = r.getHumanoid() or ph
+        -- 5) At target: keep the desync lock (DiceHub holds Anchored + zero
+        --    velocity after PivotTo), drop the carried lake egg WHILE locked,
+        --    hold it briefly, then release into a stealEggPickup-style grab.
+        notify("[6/7] Picking up Target Egg...")
+        if bu then pcall(r.runAutoDropEgg) end
+        task.wait(0.06)
         root = r.getRoot()
-        if not root then return false end
-        pcall(function() root.Anchored = false end)
+        if root then
+            root.Anchored = true
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+        end
+        task.wait(0.06)
+        root = r.getRoot()
+        if root then pcall(function() root.Anchored = false end) end
         hum:ChangeState(Enum.HumanoidStateType.Running)
+
+        if not r.waitFor(2, 0.05, function() return not bu end) then
+            pcall(r.runAutoDropEgg)
+            task.wait(0.3)
+        end
+
         local dr = r.getSlotEggPosition(dq)
         local groundPos = CFrame.new(dr.X, r.groundedY(dr.X, dr.Z, dr.Y), dr.Z)
 
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "grab pertama!", Text = "Pesan Anda", Duration = 5})
         -- grab 1
+        notify("[6/7] Grab 1...")
         local g1 = os.clock() + 2.5
         while s and r.isOn("AutoStealWarp") and not r.warpCarryingEgg(snipeUid) and os.clock() < g1 do
             local rr = r.getRoot()
@@ -1684,13 +1745,14 @@ function r.warpStealEgg(dq)
             task.wait(0.05)
         end
         if not r.warpCarryingEgg(snipeUid) then
+            notify("[6/7] Grab 1 failed!")
             if bu then pcall(r.runAutoDropEgg) end
             r.stealCleanup()
             return false
         end
 
         -- stand tight (lock position / no ragdoll anim, like stealEgg)
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Stay berdiri!", Text = "Pesan Anda", Duration = 5})
+        notify("[6/7] Stand tight...")
         do
             local rr = r.getRoot()
             if rr then
@@ -1700,14 +1762,13 @@ function r.warpStealEgg(dq)
                 c.Heartbeat:Wait()
             end
         end
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "hold at position!", Text = "Pesan Anda", Duration = 5})
         r.holdAtPosition(bp, function()
             return r.isOn("AutoStealWarp") and r.warpCarryingEgg(snipeUid)
         end, true)
         if not r.isOn("AutoStealWarp") then return false end
 
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "regrab!", Text = "Pesan Anda", Duration = 5})
         -- regrab after hold
+        notify("[6/7] Re-grab...")
         if not r.warpCarryingEgg(snipeUid) then r.tryCarryEgg(dq); task.wait(0.12) end
         local g2 = os.clock() + 1.5
         while s and r.isOn("AutoStealWarp") and not r.warpCarryingEgg(snipeUid) and os.clock() < g2 do
@@ -1715,16 +1776,18 @@ function r.warpStealEgg(dq)
             task.wait(0.05)
         end
         if not r.warpCarryingEgg(snipeUid) then
+            notify("[6/7] Re-grab failed!")
             if bu then pcall(r.runAutoDropEgg) end
             r.stealCleanup()
             return false
         end
 
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "balik!", Text = "Pesan Anda", Duration = 5})
         -- 6) Return home immediately (no extra wait, like stealEgg)
+        notify("[7/7] Target secured! Returning home...")
         local q0 = os.clock()
         while s and r.isOn("AutoStealWarp") and os.clock() - q0 < 180 do
             if bu and r.returnToBaseBypass(function() return r.isOn("AutoStealWarp") and bu end) then
+                notify("[7/7] Delivered!")
                 return true
             end
             if not bu and r.isOn("AutoStealWarp") then
